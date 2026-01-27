@@ -1,0 +1,357 @@
+1 How do I change the time length of 15 mins that is used when displaying the Show ISDN history command?
+1 Why do whales and dolphins beach themselves?
+1 How expensive is PGP?
+1 Why don't XtAddInput(), XtAddTimeout() and XtAddWorkProc() work?
+1 How do I use Secure Shell (SSH) on Cisco devices?
+1 Which visual should an application use?
+1 What are the pro's and con's of using two ISP/BGP providers?
+1 What does the keyword EXTENDABLE mean when doing NAT?
+0 Can you help me interpret the output fomr "Looking Glass" (BGP?)
+1 How dow I load a large image on a 2500 *lab* router?
+1 Have there been any historical examples of anarchist societies?
+1 How do I use Secure Shell (SSH) on Cisco devices?
+1 What is a product cipher?
+1 Why is tradition a source of greater wisdom?
+1 How would anarcho-capitalism work?
+1 How do I sort my IP Addresses using Unix tools??
+0 Isn't conservatism essentially nostalgia for a past that never was and can't be restored?
+1 How do I use NBAR to block NIMDA?
+0 Aren't anarchists terrorists?
+0 Don't anarchists favor chaos?
+1 What is my overhead of using IPSec
+1 What about truth?
+1 How do I setup Lock & Key ACL?
+0 Are anarchists pacifists?
+1 How does dolphin sonar work?
+1 What cable do I use on 1900 switch with a DB9 Console connector?
+1 What can be proven about the security of a product cipher?
+1 How do I read Token Ring Mac and RIF?
+1 Why isn't it better to reason things out from the beginning?
+1 How can I use debugging?
+1 Where can I buy some Back-to-Back serial cables?
+1 How do I open multiple displays?
+1 What other anarchist viewpoints are there?
+1 Who are the major anarchist thinkers?
+1 How do I setup FR End-to-End keepalives?
+1 Where can I get ancillary software for my cisco?
+1 How do I NAT on a single Cisco 2503 Ethernet interface
+1 How do I connect 675 DSL units back to back?
+1 How do I setup the variables to do tftpdnld in rommon?
+1 How do I setup SLIP on my Cisco terminal servers?
+0 Is this a memory leak in the X11R4 deletion of work procs?!
+1 Why can't I upload an IOS image on to my flash on my 2500 router?
+1 What are some major anarchist writings?
+1 What's all this stuff about community and tradition when the groups that matter these days are based on interests and perspectives rather than traditions?
+1 What IP routing protocol should I use?
+1 How do I use the ip-helper command to facilitate DHCP use?
+1 Where can I get some third party icons for my Visio program?
+1 What about Wang Basic?
+1 How do I make an Ethernet Cross-over cable?
+1 How can I connect two Cisco routers back to back through the AUX ports?
+1 How do I exit but still execute the DestroyCallbacks?
+1 How do I forward DHCP broadcasts to my DHCP server?
+1 How do I only accept a 0/0 Route but advertise my 30 addresses via BGP?
+0 Should I turn off console loggin??
+1 What is the difference between a CiscoPro model and a regular one?
+1 Where can I get mzmaker to compress my IOS?
+1 What are paleoconservatives?
+1 What is the purpose of business-basic@bbpro.org
+1 How do I show just one interface's configuration?
+1 How would anarchists handle the "public goods" problem?
+1 How do I use the PCMCIA slot in my 2500 router?
+1 What sort of stuff should I post to this mailing list?
+1 When using Tunnel with an interface that has an ACL, what happens?
+1 How do I make NTP packets so it's only interesting on router bootup?
+1 What good books and magazines are there on Xt?
+1 How can anyone know his own tradition is the right one?
+1 How did dolphins evolve?
+0 Can you help me interpret the output fomr "Looking Glass" (BGP?)
+0 Can I use XtMoveWidget(), ... to move widgets I created?
+1 How do I know if a widget is visible?
+1 How do I configure my router so it becomes a DHCP CLIENT?
+1 Where can I find information on securing or hardening Cisco routers?
+1 What species was the dolphin in the Flipper series?
+1 What's the difference between following tradition and refusing to think?
+1 How do I setup Windows 2000 and IPSec to PIX FIrewall
+1 What is PGP?
+1 How do I use a route-map to limit redistribution in OSPF?
+0 Can I use a router to simulate BRI switch?
+1 What is alt.animals.dolphins?
+0 Is there another way to upload my IOS w/o a tftp server?
+1 What's the latest software for the CSC/3?
+1 What can I do about source routing?
+1 How do I use Policy Based Routing?
+1 How do I make a T1 Cross-over cable?
+0 Can I use a address space for my serial point-to-point interfaces?
+1 How are Ethernet MAC addresses transmitted?
+1 Why does XtGetValues not work for me (sic)?
+1 What are mainstream conservatives?
+1 How can I contact cisco?
+1 What is the difference between dolphins and porpoises?
+1 How are created, managed, mapped, realized, etc. related?
+1 What kind of memory does the 2500 use?
+1 Where can I buy some Back-to-Back serial cables?
+1 What about welfare for the middle classes?
+1 Which visual, depth and colormap do Shells inherit?
+1 How can I automatically ping a range of IP addresses in Wintel world?
+1 How do I resize a Shell widget?
+1 How can you adopt a dolphin or whale?
+1 How do I hide a summarized OSPF router from one ABR to another?
+1 What does Frame-relay LMI and Encapsulation really do/mean?
+1 How was NSA involved in the design of DES?
+1 How would left-anarchy work?
+1 What is the maximum number of Frame Relay PVCs?
+1 How do I suppress the transmission of PPP frames from when dialing in?
+1 How do I use IPX over DDR?
+1 How do I see power-supply failures via SNMP?
+0 Shouldn't the government do something for people for whom the usual support networks don't work?
+1 Why do only Shell widgets have a Visual?
+1 Why do I get "Warning: Widget class version mismatch"?
+0 Can symmetric block ciphers be used for message authentication?
+1 How fast can a dolphin swim?
+1 Where can I get some third party icons for my Visio program?
+1 Where can I get a good file-selector widget?
+1 How difficult is it to learn PGP?
+1 How can I add a C++ member function as a widget callback?
+1 What is the pinout for the DB9 to RJ45 connector?
+1 What are some group-theoretic properties of product ciphers?
+1 How to debug an Xt application?
+1 What are ECB, CBC, CFB, OFB, and PCBC encryption?
+0 Is this true?
+1 How do I access my MSFC/Router in my 6509?
+1 How do I setup NAT and Port forwarding?
+1 How do I use a different visual than the default?
+1 How much memory is necessary to telnet to a cisco router?
+1 How do I change the timer for tx/rxload when doing "show int" command?
+1 Are there any publications available for Business Basic programmers?
+1 How do I remove the /32 - host - route when a PPP link comes up?
+1 Who created PGP?
+1 Where can I purchase flash RAM?
+1 How can I access the console port on my MSFC in my 6500?
+0 Is anarchism the same thing as socialism?
+0 Are there dolphin-related mailing lists?
+1 How can tradition do anything but endorse the way things happen to be?
+1 How do libertarians differ from conservatives?
+0 Can dolphins combine information from their sonar with their vision?
+1 Why are the 46th and the 47th bit significant in Ethernet MAC address?
+1 What is distinctive about conservatism as a political view?
+0 Can I use a /31 address space for my serial point-to-point interfaces?
+1 What is the order of operation in terms how a packet is processed?
+1 How old can they get?
+1 Who uses Business Basic?
+1 Where can you work with dolphins or other marine mammals?
+1 How do I see power-supply failures via SNMP?
+1 What sort of stuff should I NOT post to this mailing list?
+0 Does my Cisco terminal server send a BREAK signal on reboot?
+0 Is PGP legal in the United States?
+1 What's the purpose of the network command?
+1 What is a FECN/BECN and does it mean anything?
+1 Why do some people use XmN<something> as resource names?
+1 What is this link problem with _get_wmShellWidgetClass, XtInherit?
+1 Where can I obtain the FAQ?
+1 When are static routes redistributed?
+1 How do dolphins sleep?
+1 What moral justifications have been offered for anarchism?
+1 Where can I get cisco documentation?
+1 What are the different types of memory used by Cisco Routers?
+1 Where can I find information on securing or hardening Cisco routers?
+1 How do I break the "Rule of Ten" for BGP Load balancing?
+1 What is Business Basic?
+1 How do I setup a Multilink PPP?
+1 Why use XtMalloc, XtFree, etc?
+1 How do I avoid the annoying DNS lookup if I have misspelled a command?
+1 How do I stop my router from looking for cisconet.cfg or network-config?
+0 Is there another way to upload my IOS w/o a tftp server?
+1 What does ``cisco'' stand for?
+0 Is this a memory leak in the X11R4 XtDestroyWidget()?!
+1 How can I identify the children of a manager widget?
+1 How should I restrict access to my router?
+1 How do i see log messages on the router console?
+1 How do I load the Documentation CD (UniverseCD) on Windows 2000?
+1 What about freedom?
+1 What Windows chatter could bring up and ISDN line?
+1 What Widgets are available?
+1 What role do conservatives think government should play in enforcing moral values?
+1 What can I do to remove SAP Type 640 on my routers?
+0 Do I need a Xover cable when using 1000Base-T?
+1 How safe is PGP? Will it really protect my privacy?
+1 How might an anarchist society be achieved?
+1 Where can you swim with dolphins?
+1 How do I simulate a button press/release event for a widget?
+1 Are there any users groups for Business Basic developers?
+1 Anything else I should know?
+1 What changed from R3 to R4 to R5?
+0 Isn't an interpreted language slower than a compiled language?
+0 Are there any freeware/shareware compilers/interpreters available via the Internet?
+1 Where can I get IETF documents (RFCs, STDs, etc.)?
+1 How do I setup ppp callback with dialer-pool?
+1 How can I use NTP (Network Time Protocol) with my cisco?
+1 How can I search CCO for IS-IS related information?
+1 What criticisms have been made of anarchism?
+1 Where can I find a hypertext widget or source code?
+1 How do I setup SLIP on my Cisco terminal servers?
+1 How do I save the configuration of a cisco?
+0 Is PGP available for my machine?
+0 Doesn't that mean that to be conservative I should stay true to liberalism?
+0 I've done all the above and I still get a BadMatch error.  Why?
+0 Is there a block of private IP addresses I can use?
+0 Can dolphins see colors?
+1 Why does my app core dump when I use signals/alarms/cthreads?
+1 What is the largest dolphin?
+0 Is DES available in hardware?
+1 If conserving is a good thing, why isn't ecology a conservative issue?
+1 What is the meaning of in/out in reference to an access-list?
+1 Why do I see "double" characters when I telnet into my router?
+1 What is the pinout for the DB9 to RJ45 connector?
+0 Aren't conservatives racist sexist homophobes?
+1 Why do conservatives always want to force their values on everybody else?
+1 How do I configure a router to act as a Frame-Relay Switch?
+1 Where can you find dolphins?
+1 What makes a product cipher secure?
+1 How do I tell the difference between the differen 2900 XL switches?
+1 How do i see log messages on the router console?
+1 What are the differnt T1 jack type codes?
+1 Why is measuring collisions meaningless endeavour?
+1 What major subdivisions may be made among anarchists?
+1 How do I make my life easier when designing an application?
+1 What is differential cryptanalysis?
+1 How deep can a dolphin dive?
+0 Is DES available in software?
+1 What are paleolibertarians?
+1 How do I setup FR End-to-End keepalives?
+1 What operating systems have Business Basic available?
+1 What alternatives to the Intrinsics are there?
+0 Is anarchism the same thing as libertarianism?
+1 How to use Fallback resources (can I specify colors)?
+1 How do I reparent a widget in Xt, i.e. XtReparentWidget()?
+1 How do I find the "real" IOS name when the file is in DOS format?
+1 How do I format the PCMCIA card on a 3600?
+1 How can I get my cisco to talk to a 3rd-party router over Frame Relay?
+1 Where can you see whales and dolphins in the wild?
+1 Where can I find a list of undocumented IOS commands?
+1 Where do the pro-life movement and Religious Right fit into all this?
+0 Do any USENET newsgroups exist for Business Basic developers?
+1 How do I interpret the output of ``show version''?
+1 Why can't conservatives just accept that people's personal values differ?
+1 What exactly is DES?
+1 What is the pinout for the Console port on a 2518?
+1 How do I change the time length of 15 mins that is used when
+1 How do you setup a simple Priority Queuing?
+0 Don't anarchists favor the abolition of the family, property,religion, and other social institutions besides the state?
+1 What are some addresses for anarchist World Wide Web sites?
+1 What is a dolphin fish?
+1 How can I find dolphin related Web sites?
+1 How many species of dolphins are there?
+1 What is and how can I implement drag and drop?
+1 How do I configure a trasparent proxy redirecting on CISCO router?
+1 How do I access the Console port on an AccessPro (AP-EC) card?
+1 How do I setup DHCP service on my router?
+1 How does PGP work?
+1 How can I policy-route router generated packets?
+0 Are there any fictional books starring dolphins?
+0 Isn't conservatism simply another way of saying that people who currently have wealth and power should keep it?
+1 Where can you find information on Dolphin Assisted Therapy?
+1 What does the keyword EXTENDABLE mean when doing NAT?
+1 How to use the String definition from a C++ library?
+1 What are some methods for conserving IP addresses for serial lines?
+1 How do name and phone number of ``dialer map'' interfere?
+0 Can dolphins live in fresh water?
+1 What is my overhead of using IPSec
+1 Why don't conservatives care about what happens to the poor, weak, discouraged, and outcast?
+1 How are packets switched?
+1 Who uses PGP encryption [or other RSA-based systems]?
+1 What do all these things called "conservatism" have in common?
+1 How do I setup NAT and Port forwarding?
+1 How are block ciphers used to encrypt data longer than the block size?
+1 Why can't tradition be an accumulation of ignorance, error and vice as easily as of wisdom?
+0 Are these versions of PGP mutually compatible?
+1 How do dolphins get their water?
+1 Why is XtGetValues() on XtNx, XtNy of my top level shell wrong?
+0 Isn't anarchism utopian?
+1 How do cisco routers rate performance-wise?
+1 What are the differences between American conservatism and that of other countries?
+1 Why do conservatives say they favor virtue and community but favor laissez-faire capitalism?
+0 Do I need a Xover cable when using 1000Base-T?
+1 How can I policy-route router generated packets?
+1 What is anarchism? What beliefs do anarchists share?
+1 How dow I break the "Rule of Ten" for BGP Load balancing?
+1 How do I use the Cisco Documentation CD (UniverseCD) under Linux?
+1 What are neoconservatives?
+1 How do I stop logging (and generating snmp trap) for up/down interfaces?
+1 What is a PGP digital signature?
+1 How does the dolphin brain compare to the human brain?
+1 Where are the resources loaded from?
+1 Who contributed to this document?
+1 How much memory is taken up by BGP routes?
+1 How do I query the user synchronously using Xt?
+0 Shouldn't conservatives favor things that are as well-established as the welfare state and steady expansion of the scope of the civil rights laws?
+1 How to setup NAT'ing based on outgoing interface to two different ISPs.
+1 How do I pass a float value to XtSetValues?
+1 How do I send L2 traffic through a tunnel?
+1 How does one interpret buffer statistics?
+1 How can I connect two Cisco routers back to back through the AUX ports?
+1 Why do I see "double" characters when I telnet into my router?
+1 Why doesn't my widget get destroyed when I call XtDestroyWidget()?
+1 How do I prevent my switch ports from going into ErrDisable state?
+1 Why can't I override translations? Only the first item works.
+0 Do dolphins live shorter in captivity?
+1 How do I change the timer for tx/rxload when doing "show int" command?
+1 What is this newsgroup?
+1 What is VLSM?
+1 How can I get my cisco to talk to a third party router over
+1 What is the dolphin species seen in most oceanaria?
+1 Why does one packet always get dropped on the last hop of traceroute?
+1 Where can I get Business Basic?
+1 Why should one consider anarchism in the first place?
+1 What is the preferred way of setting the application resources?
+1 What widget is appropriate to use as a drawing canvas?
+1 Where can I find a list of undocumented IOS commands?
+1 What are family values and what is so great about them?
+1 How do dolphins communicate and do they have their own language?
+1 How do I stop password-recovery on my routers?
+1 How can you interact with wild dolphins?
+1 Where do I get PGP?
+1 How do I write a resource converter?
+0 Can DES be used to protect classified information?
+1 How do I setup a VPN tunnel using pre-shared keys?
+1 What basic information do I need to setup a T1 from my ISP?
+0 Are dolphins endangered?
+1 Why are most people seriously involved in studying and dealing with social issues liberals?
+1 When using Tunnel with an interface that has an ACL, what happens?
+0 Besides the business-basic mailing list, are any Business Basic resources (Libraries, example code, product support) available via the Internet?
+1 Where can I learn more about the PGP and related subjects?
+0 Don't anarchists assume that all people are innately virtuous?
+0 Wouldn't we still have slavery if conservatives had always been running the show?
+0 Is DHCP supported?
+1 How do I only accept a 0/0 Route but advertise my 30 addresses via BGP?
+1 How do I telnet to a specific VTY line/
+1 What is the smallest dolphin species?
+1 When is the next hop of a route considered ``reachable''?
+1 What other online resources exist for Business Basic developers?
+1 Why do I need privacy?
+1 What order are callbacks executed in?
+1 How do I do X25 over ISDN D channel?
+1 How can I script a network reachability test?
+0 Is there a World-Wide-Web (www) information source?
+1 What are cetaceans?
+0 Should I use a T1, Cable modem or DSL for Internet connections?
+1 How to get rid of that annoying flicker during updates?
+0 Aren't computers and e-mail already safe?
+1 How do I use tftpdnld via Ethernet port on a 2600?
+1 Where can you find out more about books, videos etc. about dolphins?
+1 Which gets treated as "ours?"
+1 What basic information do I need to setup a T1 from my ISP?
+1 What is triple DES?
+1 Why can't XtAppAddInput() handle files?
+1 What and how much do dolphins eat?
+1 How do I get the memory-usage on the Vip-Card
+1 What are the major debates between anarchists? What are the recurring arguments?
+1 What are Frankfurt School Neopaleoconservatives?
+1 How do I setup MultiLinkPPP?
+0 Should I use a T1, Cable modem or DSL for Internet connections?
+1 Why not just accept change?
+1 How intelligent are dolphins?
+1 Where can I get cisco hardware?
+1 What happens to feminists, homosexuals, racial minorities and others marginalized in a conservative society?
+1 Why do conservatives talk as if the sky is about to fall and all good things are in the past?
+0 Is there a better (free) tftp server than the one by Cisco?

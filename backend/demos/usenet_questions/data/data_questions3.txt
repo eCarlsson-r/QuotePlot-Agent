@@ -1,0 +1,96 @@
+5 please reply.
+6 that Kohonen suggested in one of his papers.
+7 Then I rate the best inputs by the out-of-sample error, with that input held out.
+1 I'm creating a program
+1 I would use it underwater or in wet environment sometimes for my environmental management projects  Viktoras
+6 since neural networks tend to overfit in-sample data.
+5 Plese give me a help!
+2 you can do it in less than a month
+1 I wont discuss it with any one, and
+4 are there any PCA resources to help the non maths person?
+2 On the web-site of Mosro-Uni you can find these software. jens
+1 I would appreciate any advice.
+7 I should search for.
+7 so i could break the a-z set in 4-5 different groups and latter feed them to some NN to get a result.
+7 but i have several questions that are still mystery to me.
+1 I'm trying to do something like PCA.
+8 it just needs to be easy to use
+4 2)which language is more convenient comparing C++ and Matlab?
+4 what do you mean assuming im not joking?
+1 But now I need to use some Elman networks,
+4 1)how to select the features in order to recognize the cancerous cells?
+4 Does anyone know how such a prior could be declared?
+8 it must be capable of handling the character recognition tasks.
+4 how do i set up a simple Kohonen NN for classifying chars?
+2 you can help me.
+1 I would like to know what master degree courses exist on Neural Networks at universities in the following countries:
+0 Assuming you're not joking,
+6 Creation of feedforward networks is done easily with ff_bignet.
+4 Anyone know a good and EASY to implement backpropagation ANN in C++?
+7 I do have a BS in Math from CSU Hayward.
+9 I guess this is not true,
+2 you can now order your copy online
+6 Club has ceased to exist.
+7 I live between Oakland and San Jose, California, but
+4 Can anyone give me some hints?
+7 With a backprop net, I'm holding one input out at a time and re-training.
+1 I would like to add some prior knowledge to the means
+6 it preserve topological ordering,
+10 If my question needs further explanation
+9 IMHO for neural networks only an out-of-sample r-square should be relevant,
+6 Classical point of view suggests using some iterative algoritms with conjunction of the secant method.
+4 Is there a simpler way, like watching weight changes for each input?
+5 try Google and,
+1 i decided to do some character recognition stuff.
+6 since you're at the University of Paisley, Dr.
+1 I'm interested on getting a master degree on artificial neural networks.
+7 i bug him too much asking for help
+1 I need to learn PCA to do a linear initialisation apon my self organising map.
+6 so that the values in the samples range from 01
+2 you can use all them at once.
+10 If the terms hopfield, SOM, Prerceptron etc sound familliar, then
+5 please write back Thomas Stoltz
+4 Can you elaborate and give me more specific keyword
+7 Im not a maths head, but more of a programming head,
+1 Any advice would be greatly appreciated.
+7 I am using the batchman interface of the Stuttgart Neural Network Simulator .
+7 I scale each component in the vector,
+1 i am looking forward for your help eagerly!
+6 But there are some ANNs that are not adaptive systems.
+10 if I'm wrong in my considerations
+1 I'm interested in.
+2 you can use all them at once.
+6 One feature of SOM is that
+1 but I would like to be sure.
+6 Genetic algorithms search returns many results
+6 That is a useful method as well.
+4 Are there any free, open source or such packages?
+1 I'm wondering
+2 You can list books for sale
+7 But my problem is
+1 I don't want to code the raw basics of the ANN  so
+0 I'm a fresh new student in the NN field.
+7 I have to find solution for some process variables for multidimentional system.
+2 you could use absolute error instead.
+6 it is common to evaluate regression models with r-square,
+6 This is the same normalization
+7 I've readed that Kohonen networks can be used to group a set of characters in group,
+4 Is this the best way to do it?
+6 that predicts data by means of a gaussian process network.
+6 that has courses in artificial intelligence and neural networks, from introduction to a more advanced level.
+10 if anyone knows of any college or university
+7 I cannot find any related coursework among the nearby junior colleges or at Cal State Hayward.
+1 I'm looking at learning to use ANN to do some emission modeling,
+6 And not all adaptive systemsa are ANNs.
+1 I'd like rather to use NN or  genetic methods to find the process values
+4 what NN software would you recommend to a newbie
+1 now i am doing a project on cancerous cell image identification by neural network.
+7 I have a question related to Kohonen Self-organizing maps .
+6 that need to be forced to decrease.
+7 Colin is who im doing my MSc thesis for
+4 Where can i find some simple examples of Kohonen implementation in C/C++ or some literature about it?
+8 it doesn't absolutely need those special features which make it a little faster etc,
+7 I have an algorithm
+1 i need something pre-done.
+7 I hold all but one input at min and the stepping each in turn min to max.
+1 I'm currently trying to combine both methods into one.
