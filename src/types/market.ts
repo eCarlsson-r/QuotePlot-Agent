@@ -23,8 +23,21 @@ export interface Insight {
   trend_summary: string;
 }
 
+export interface TickerInfo {
+  price: number;
+  oldPrice: number;
+  change: number;
+}
+
 export interface AgentResponse {
   reply: string;
   prediction_type: string;
   probability: number;
 }
+
+export interface MarketData {
+  selectedSymbol: string;
+  setSelectedSymbol: (symbol: string) => void;
+  insight: Insight;
+  setInsight: (insight: Insight) => void;
+};

@@ -2,23 +2,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import market, agent
 from contextlib import asynccontextmanager
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # This is our "Automatic Sync" manager
-scheduler = BackgroundScheduler()
+scheduler = AsyncIOScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # --- 5th Function: The Auto-Scheduler ---
+    # Run the "Pulse" every 10 seconds
+    scheduler.add_job(market.continuous_oracle_sync, 'interval', seconds=10)
     # Add the sync task for BTC and ETH to run every 60 seconds
     scheduler.add_job(market.sync_oracle_task, 'interval', seconds=60, args=["BTC"])
     scheduler.add_job(market.sync_oracle_task, 'interval', seconds=60, args=["ETH"])
     
     scheduler.start()
-    print("🚀 Automatic Oracle Sync Started (Every 60s)")
-    
     yield  # Server runs here...
-    
     scheduler.shutdown()
     print("🛑 Scheduler Shut Down")
 

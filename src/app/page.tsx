@@ -1,8 +1,18 @@
 "use client";
 import ChatBox from '@/components/ChatBox';
 import MarketChart from '@/components/MarketChart';
+import { useState } from 'react';
+import { Insight } from '@/types/market';
 
 export default function Dashboard() {
+  const [selectedSymbol, setSelectedSymbol] = useState<string>("BTC");
+  const [insight, setInsight] = useState<Insight>({
+    last_price: 0,
+    prediction: "",
+    probability: 0,
+    symbol: "",
+    trend_summary: ""
+  });
   const mockWallet = "0x71C...3d2"; // Replace with real wallet connection later
   return (
     <div className="min-h-screen bg-slate-950 text-white p-8">
@@ -19,11 +29,11 @@ export default function Dashboard() {
       {/* Main Chart Section */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-800">
-          <MarketChart />
+          <MarketChart selectedSymbol={selectedSymbol} setSelectedSymbol={setSelectedSymbol} insight={insight} setInsight={setInsight} />
         </div>
 
         {/* Sidebar for Intelligent Agent Chat (Replicating lucyagent.html logic) */}
-        <ChatBox walletAddress={mockWallet} />
+        <ChatBox walletAddress={mockWallet} selectedSymbol={selectedSymbol} insight={insight} />
       </div>
     </div>
   );
