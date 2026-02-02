@@ -1,3 +1,4 @@
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import market, agent
@@ -9,16 +10,12 @@ scheduler = AsyncIOScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Run the "Pulse" every 10 seconds
-    scheduler.add_job(market.continuous_oracle_sync, 'interval', seconds=10)
-    # Add the sync task for BTC and ETH to run every 60 seconds
-    scheduler.add_job(market.sync_oracle_task, 'interval', seconds=60, args=["BTC"])
-    scheduler.add_job(market.sync_oracle_task, 'interval', seconds=60, args=["ETH"])
-    
-    scheduler.start()
-    yield  # Server runs here...
-    scheduler.shutdown()
-    print("🛑 Scheduler Shut Down")
+    # Initialize the global client
+    global market_client
+    market.http_client = httpx.AsyncClient()
+    yield
+    # Shutdown gracefully
+    await market.http_client.aclose()
 
 app = FastAPI(title="QuotePlot Agent Web3", lifespan=lifespan)
 

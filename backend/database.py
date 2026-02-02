@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Column, String, Integer, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -25,3 +25,12 @@ def get_db():
         yield db
     finally:
         db.close()
+
+class TokenMap(Base):
+    __tablename__ = "token_map"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String(10), unique=True, index=True) # e.g., "BTC"
+    coingecko_id = Column(String(50))                   # e.g., "bitcoin"
+    pyth_id = Column(String(100), nullable=True)        # The 0x... hex string
+    is_active = Column(Boolean, default=True)

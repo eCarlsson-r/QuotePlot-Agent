@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@amcharts/amcharts5": "^5.15.4",
+    "ethers": "^6.16.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.4",
     "react": "19.2.3",

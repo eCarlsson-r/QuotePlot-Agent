@@ -16,11 +16,11 @@ export interface StockHistoryItem {
 }
 
 export interface Insight {
-  last_price: number;
+  last_price?: number;
   prediction: string;
   probability: number;
-  symbol: string;
-  trend_summary: string;
+  symbol?: string;
+  trend_summary?: string;
 }
 
 export interface TickerInfo {
@@ -36,8 +36,9 @@ export interface AgentResponse {
 }
 
 export interface MarketData {
+  data: TickerInfo[];
+  tickerData: TickerInfo[];
+  insight: Insight;
   selectedSymbol: string;
   setSelectedSymbol: (symbol: string) => void;
-  insight: Insight;
-  setInsight: (insight: Insight) => void;
 };

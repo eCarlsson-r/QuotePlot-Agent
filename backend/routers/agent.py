@@ -11,6 +11,14 @@ from lucy import text as lucy_text  # Your custom legacy logic
 # 1. Define the Router
 router = APIRouter(prefix="/api/agent", tags=["agent"])
 
+def classify_intent(user_text):
+    text = user_text.lower()
+    if any(word in text for word in ["chart", "graph", "probability", "predict"]):
+        return "TECHNICAL"
+    elif any(word in text for word in ["news", "vibe", "feel", "sentiment"]):
+        return "SENTIMENT"
+    return "GENERAL"
+
 @router.get("/insight/{symbol}")
 async def get_lucy_insight(symbol: str, db: Session = Depends(get_db)):
     # 1. Fetch the last 10 rows for context
@@ -31,19 +39,24 @@ async def get_lucy_insight(symbol: str, db: Session = Depends(get_db)):
     # 3. Use your legacy 'msgClassifier' or a simple logic bridge
     # For now, we'll simulate her prediction based on the trend
     prediction = "Bullish" if trend == "rising" else "Bearish"
+
+    # Inside get_lucy_insight, replace probability = 0.84 with:
+    diff = abs(prices[0] - prices[-1])
+    avg = sum(prices) / len(prices)
+    # A simple way to get a confidence number between 0.5 and 0.95
+    calc_prob = min(0.95, 0.5 + (diff / avg) * 10)
     
     return {
         "symbol": symbol,
         "last_price": prices[0],
         "trend_summary": f"Lucy observes a {trend} trend over the last 10 syncs.",
         "prediction": prediction,
-        "probability": 0.84 # Simulated confidence
+        "probability": calc_prob # Simulated confidence
     }
 
 # 2. Define Request/Response Models
 class ChatRequest(BaseModel):
     content: str
-    wallet_address: str  # Web3 Ready
 
 class ChatResponse(BaseModel):
     reply: str
@@ -70,40 +83,59 @@ except FileNotFoundError:
 
 # 4. The Chat Endpoint
 @router.post("/reply", response_model=ChatResponse)
-async def chat_agent_reply(request: ChatRequest):
-    if msgClassifier is None:
-        raise HTTPException(status_code=500, detail="AI Model not loaded on server.")
-        
+async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
+    intent = classify_intent(request.content)
+    
+    if intent == "TECHNICAL":
+        # Lucy triggers the SVC model and amCharts update
+        return {"content": "Analyzing technical indicators and SVC probability...", "tool": "chart_update"}
+    elif intent == "SENTIMENT":
+        # Lucy scans news headlines or social data
+        return {"content": "Mining current market sentiment and news cycles...", "tool": "sentiment_scan"}
+    
+    return {"content": "How can I help with your market research today?"}
     try:
-        # 1. Generate feature vector from the message string using Lucy's logic
+        # 1. Classification Logic (Your SVC Model)
         fv = lucy_text.genfeatureVectorFromString(request.content, vocab, vocabidf)
-        
-        # 2. Perform prediction using the Pipeline (Normalizer + SVC)
-        # We wrap [fv] because Scikit-Learn expects a list of samples
         prediction = msgClassifier.predict([fv])[0]
         probs = msgClassifier.predict_proba([fv])[0]
         
-        # 3. Determine the "Prediction Type" based on your model's classes
-        # Class 1 = Open Question, Class 0 = Closed/Other (based on your eval report)
         is_open = int(prediction) == 1
         p_type = "Open question" if is_open else "Closed question"
+        class_confidence = float(probs[1] if is_open else probs[0])
+
+        # 2. Market Logic (The Lucy Insight Bridge)
+        content_lower = request.content.lower()
+        # Simple keyword detection
+        target_symbol = "BTC" # Default
+        if "eth" in content_lower or "ethereum" in content_lower:
+            target_symbol = "ETH"
+        elif "sol" in content_lower or "solana" in content_lower:
+            target_symbol = "SOL"
+
+        # Now fetch the real context using your existing function
+        market_info = await get_lucy_insight(target_symbol, db)
         
-        # 4. Get the confidence for the specific predicted class
-        # probs[1] is confidence for Class 1, probs[0] for Class 0
-        confidence = float(probs[1] if is_open else probs[0])
-        
-        # 5. Add a "Low Confidence" check for the 0.56 precision area
-        custom_reply = f"Lucy classifies this as an {p_type.lower()}."
-        if confidence < 0.65:
-            custom_reply += " (Note: I am leaning toward this, but I'm not entirely certain.)"
-        
+        # 3. Formulate the "Smart" Reply
+        if is_open:
+            custom_reply = (
+                f"I've classified this as an {p_type.lower()}. "
+                f"Looking at {target_symbol}, {market_info['trend_summary']} "
+                f"The current sentiment is {market_info['prediction']}."
+            )
+        else:
+            custom_reply = f"I've noted your comment. My current analysis for {target_symbol} remains {market_info['prediction']}."
+
+        # Add the confidence warning if classification is shaky
+        if class_confidence < 0.65:
+            custom_reply += " (I'm leaning towards this interpretation, but clarify if I'm off!)"
+
         return {
             "reply": custom_reply,
             "prediction_type": p_type,
-            "probability": confidence
+            "probability": market_info['probability'] # Drive the gauge with market probability!
         }
         
     except Exception as e:
-        # Log the error for debugging
         print(f"Prediction Error: {e}")
-        raise HTTPException(status_code=500, detail=f"Lucy encountered an error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
