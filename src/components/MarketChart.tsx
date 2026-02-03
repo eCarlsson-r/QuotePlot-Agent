@@ -98,6 +98,22 @@ const MarketChart = (props: MarketData) => {
     if (seriesRef.current) {
       seriesRef.current.set("name", props.selectedSymbol);
       seriesRef.current.data.setAll(props.data);
+
+      // IMPORTANT: Tell the axes to re-scan the new data to find the new min/max prices
+      yAxisRef.current?.animate({
+        key: "min",
+        to: undefined, // Let it auto-calculate
+        duration: 500
+      });
+      yAxisRef.current?.animate({
+        key: "max",
+        to: undefined,
+        duration: 500
+      });
+
+      const strokeColor = props.themeMode === 'volatile' ? am5.color(0xef4444) : am5.color(0x3b82f6);
+      seriesRef.current.set("stroke", strokeColor);
+      seriesRef.current.set("fill", strokeColor);
     }
 
     // Update Lucy's Confidence Gauge
@@ -113,7 +129,7 @@ const MarketChart = (props: MarketData) => {
         percentLabelRef.current.setAll({ text: `${Math.round(probValue)}%`, fill: color });
       }
     }
-  }, [props.data, props.insight, props.selectedSymbol]);
+  }, [props.data, props.insight, props.selectedSymbol, props.themeMode]);
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-slate-950 text-slate-200 overflow-hidden">

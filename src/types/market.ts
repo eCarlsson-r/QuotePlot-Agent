@@ -41,4 +41,5 @@ export interface MarketData {
   insight: Insight;
   selectedSymbol: string;
   setSelectedSymbol: (symbol: string) => void;
+  themeMode: string;
 };

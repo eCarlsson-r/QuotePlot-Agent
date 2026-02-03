@@ -11,10 +11,13 @@
   "dependencies": {
     "@amcharts/amcharts5": "^5.15.4",
     "ethers": "^6.16.0",
+    "html2canvas": "^1.4.1",
     "lucide-react": "^0.563.0",
     "next": "16.1.4",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-gauge-component": "^2.0.26",
+    "react-toastify": "^11.0.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

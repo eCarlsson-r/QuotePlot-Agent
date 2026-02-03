@@ -1,148 +1,127 @@
-import asyncio
 import httpx
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import text as sql_text
-from datetime import datetime, timedelta
-
-from database import get_db, SessionLocal, TokenMap
-
-# --- SHARED STATE ---
-PRICE_FEED_IDS = {
-    "BTC": "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
-    "ETH": "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"
-}
-sync_progress_store = {}
-http_client: httpx.AsyncClient = None  # Global client initialized in lifespan
+from sqlalchemy import func, select, text as sql_text
+from database import get_db
+from models import TokenMap, Stock  # Ensure these are your model classes
+from utils import get_tokens
 
 router = APIRouter(prefix="/api/market", tags=["market"])
 
-# --- UTILITIES (The "Clean" Core) ---
-
-async def fetch_pyth_price(symbol: str, timestamp: int = None):
-    """Universal fetcher for both LIVE and HISTORICAL Pyth data."""
-    feed_id = PRICE_FEED_IDS.get(symbol)
-    if not feed_id: return None
-    
-    # Use v1 for historical benchmarks, v2 for latest updates
-    url = f"https://hermes.pyth.network/v1/updates/price/{timestamp}?ids[]={feed_id}" if timestamp \
-          else f"https://hermes.pyth.network/v2/updates/price/latest?ids[]={feed_id}"
-    
-    try:
-        response = await http_client.get(url, timeout=5.0)
-        if response.status_code == 200:
-            data = response.json()
-            p = data['parsed'][0]['price']
-            return float(p['price']) * (10 ** p['expo'])
-    except Exception as e:
-        print(f"⚠️ Pyth Fetch Error ({symbol}): {e}")
-    return None
-
-def db_save_price(symbol: str, price: float, dt: str, db: Session):
-    """Unified database saver with conflict resolution."""
-    query = sql_text("""
-        INSERT INTO stocks (symbol, price, datetime) 
-        VALUES (:s, :p, :dt)
-        ON DUPLICATE KEY UPDATE price = VALUES(price)
-    """)
-    db.execute(query, {"s": symbol, "p": price, "dt": dt})
-    db.commit()
+# --- SHARED STATE ---
+http_client: httpx.AsyncClient = None  # Global client initialized in lifespan
+async def get_client():
+    global http_client
+    if http_client is None or http_client.is_closed:
+        http_client = httpx.AsyncClient(timeout=10.0)
+    return http_client
 
 # --- ENDPOINTS ---
 
-@router.get("/discovery")
-async def discover_web3_tokens(db: Session = Depends(get_db)):
-    # 1. Fetch live "Web3" list from CoinGecko
-    # (Using the get_tokens() function you already have)
-    gecko_list = await get_tokens()
-    
-    # 2. Get our local "Pro" mappings from the DB
-    mappings = db.query(TokenMap).all()
-    pyth_lookup = {m.symbol: m.pyth_id for m in mappings if m.pyth_id}
-
-    # 3. Enrich the list
-    enriched_list = []
-    for coin in gecko_list:
-        symbol = coin['symbol'].upper()
-        enriched_list.append({
-            "name": coin['name'],
-            "symbol": symbol,
-            "image": coin['image'],
-            "current_price": coin['current_price'],
-            "has_pro_feed": symbol in pyth_lookup, # Flag for Lucy to "Unlock" Pro Chart
-            "pyth_id": pyth_lookup.get(symbol)
-        })
-    
-    return enriched_list
-
-async def get_tokens():
-    # Use 'async with' to ensure the connection is closed automatically
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://api.coingecko.com/api/v3/coins/markets",
-            params={"vs_currency": "usd", "category": "web3"}
-        )
-        return response.json()
-    
 @router.get("/web3-list")
-async def get_web3_token_list():
-    # 1. Fetch the general Web3 list from CoinGecko
+async def get_web3_token_list(db: Session = Depends(get_db)):
+    # 1. Fetch live "Discovery" list from CoinGecko
     tokens = await get_tokens() 
     
-    # 2. Tag tokens that have high-speed Pyth feeds available
+    # 2. Get active mappings from our DB
+    mappings = db.query(TokenMap).filter(TokenMap.is_active == True).all()
+    pyth_lookup = {m.symbol: m.pyth_id for m in mappings}
+
+    # 3. Enrich the data for the Frontend
     for token in tokens:
         symbol = token['symbol'].upper()
-        token['has_pro_feed'] = symbol in PRICE_FEED_IDS
-        token['pyth_id'] = PRICE_FEED_IDS.get(symbol)
+        pyth_id = pyth_lookup.get(symbol)
+        
+        token['has_pro_feed'] = pyth_id is not None
+        token['pyth_id'] = pyth_id
         
     return tokens
 
 @router.get("/history/{symbol}")
 async def get_history(symbol: str, db: Session = Depends(get_db)):
-    """The fuel for your amCharts visual."""
-    query = sql_text("""
-        SELECT price, datetime FROM stocks 
-        WHERE symbol = :s ORDER BY datetime ASC LIMIT 1000
-    """)
+    """Provides data for amCharts visuals."""
+    query = sql_text("SELECT price, datetime FROM stocks WHERE symbol = :s ORDER BY datetime ASC LIMIT 1000")
     rows = db.execute(query, {"s": symbol}).mappings().all()
     return [{"datetime": int(r['datetime'].timestamp() * 1000), "price": float(r['price'])} for r in rows]
 
 @router.get("/tickers")
-async def get_tickers(db: Session = Depends(get_db)):
-    """Fast summary for the sidebar list."""
-    query = sql_text("""
-        SELECT symbol, price, datetime FROM (
-            SELECT symbol, price, datetime,
-            ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY datetime DESC) as rn
-            FROM stocks
-        ) t WHERE rn <= 2
-    """)
+async def get_all_tickers(db: Session = Depends(get_db)):
+    # 1. Create a "Ranked" subquery to find the 2 most recent prices per symbol
+    # This replaces the need for separate loops or hardcoded dicts
+    ranked_subquery = (
+        select(
+            Stock.symbol,
+            Stock.price,
+            func.row_number().over(
+                partition_by=Stock.symbol, 
+                order_by=Stock.datetime.desc()
+            ).label("rn")
+        )
+        .where(Stock.symbol.in_(select(TokenMap.symbol).where(TokenMap.is_active == True)))
+        .subquery()
+    )
+
+    # 2. Fetch only the top 2 rows (current and previous)
+    query = select(ranked_subquery).where(ranked_subquery.c.rn <= 2)
     rows = db.execute(query).mappings().all()
-    
-    res = {}
-    for r in rows:
-        s = r['symbol']
-        if s not in res: res[s] = {"price": float(r['price']), "prev": None}
-        else: res[s]["prev"] = float(r['price'])
-        
-    return {s: {"price": d["price"], "change": ((d["price"]-d["prev"])/d["prev"]*100) if d["prev"] else 0} 
-            for s, d in res.items()}
 
-# --- BACKGROUND TASKS ---
-
-async def backfill_history_task(symbol: str, start_dt: datetime):
-    """Unified backfiller with progress tracking."""
-    now = datetime.now()
-    total_steps = int((now - start_dt).total_seconds() / 3600)
-    
-    for i in range(total_steps):
-        current_ts = int((start_dt + timedelta(hours=i)).timestamp())
-        price = await fetch_pyth_price(symbol, current_ts)
-        if price:
-            with SessionLocal() as db:
-                dt_str = datetime.fromtimestamp(current_ts).strftime('%Y-%m-%d %H:%M:%S')
-                db_save_price(symbol, price, dt_str, db)
+    # 3. Format into { "BTC": {"price": 100, "change": 1.5}, ... }
+    tickers = {}
+    for row in rows:
+        sym = row['symbol']
+        price = float(row['price'])
         
-        sync_progress_store[symbol] = int(((i + 1) / total_steps) * 100)
-        await asyncio.sleep(0.05) # Be kind to the API
-    sync_progress_store[symbol] = 100
+        if sym not in tickers:
+            tickers[sym] = {"current": price, "prev": None}
+        else:
+            tickers[sym]["prev"] = price
+
+    # 4. Final calculation
+    result = {}
+    for sym, p in tickers.items():
+        change = 0
+        if p['prev'] and p['prev'] != 0:
+            change = ((p['current'] - p['prev']) / p['prev']) * 100
+        
+        result[sym] = {
+            "price": p['current'],
+            "change": round(change, 2)
+        }
+
+    return result
+
+
+# --- UTILITIES (The "Clean" Core) ---
+
+async def fetch_pyth_price(price_id: str):
+    # Pyth Hermes V2 endpoint
+    url = "https://hermes.pyth.network/v2/updates/price/latest"
+    # Pass params as a dict to let the library handle the [] encoding
+    params = {"ids[]": [price_id]}
+
+    try:
+        client = await get_client()
+        print(f"📡 Sending request to Pyth for {price_id[:8]}...")
+        response = await client.get(url, params=params)
+        print(f"📥 Response received! Status: {response.status_code}")
+        if response.status_code != 200:
+            return None
+        data = response.json()
+        
+        # Safe traversal of the Pyth JSON structure
+        if "parsed" in data and len(data["parsed"]) > 0:
+            p = data["parsed"][0].get("price", {})
+            raw_price = float(p.get("price", 0))
+            expo = int(p.get("expo", 0))
+            
+            if raw_price != 0:
+                return raw_price * (10 ** expo)
+        
+        return None # Explicitly return None if data is missing
+    except httpx.ConnectError:
+        print("❌ Connection Error: Could not reach Pyth servers.")
+    except httpx.TimeoutException:
+        print("❌ Timeout Error: Pyth took too long to respond.")
+    except Exception as e:
+        print(f"❌ Unexpected Error during fetch: {type(e).__name__} - {e}")
+    return None

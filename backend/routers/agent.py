@@ -1,58 +1,15 @@
-import joblib
-from pathlib import Path
-from sklearn.svm import SVC
+import time
+from fastapi import Depends, APIRouter
+from collections import deque
 from sqlalchemy.orm import Session
-import sqlalchemy
-from database import get_db
-from fastapi import Depends, APIRouter, HTTPException
+from brain import classify_user_intent, get_market_prediction # <--- THE NEW BRAIN
+from utils import extract_symbol
+from database import get_db, get_recent_prices
 from pydantic import BaseModel
-from lucy import text as lucy_text  # Your custom legacy logic
 
 # 1. Define the Router
 router = APIRouter(prefix="/api/agent", tags=["agent"])
-
-def classify_intent(user_text):
-    text = user_text.lower()
-    if any(word in text for word in ["chart", "graph", "probability", "predict"]):
-        return "TECHNICAL"
-    elif any(word in text for word in ["news", "vibe", "feel", "sentiment"]):
-        return "SENTIMENT"
-    return "GENERAL"
-
-@router.get("/insight/{symbol}")
-async def get_lucy_insight(symbol: str, db: Session = Depends(get_db)):
-    # 1. Fetch the last 10 rows for context
-    query = sqlalchemy.text("""
-        SELECT price, datetime FROM stocks 
-        WHERE symbol = :s 
-        ORDER BY datetime DESC LIMIT 10
-    """)
-    rows = db.execute(query, {"s": symbol.upper()}).mappings().all()
-    
-    if not rows:
-        return {"summary": "Not enough data for analysis yet."}
-
-    # 2. Format data for Lucy's brain (example: simplified trend string)
-    prices = [float(r['price']) for r in rows]
-    trend = "rising" if prices[0] > prices[-1] else "falling"
-    
-    # 3. Use your legacy 'msgClassifier' or a simple logic bridge
-    # For now, we'll simulate her prediction based on the trend
-    prediction = "Bullish" if trend == "rising" else "Bearish"
-
-    # Inside get_lucy_insight, replace probability = 0.84 with:
-    diff = abs(prices[0] - prices[-1])
-    avg = sum(prices) / len(prices)
-    # A simple way to get a confidence number between 0.5 and 0.95
-    calc_prob = min(0.95, 0.5 + (diff / avg) * 10)
-    
-    return {
-        "symbol": symbol,
-        "last_price": prices[0],
-        "trend_summary": f"Lucy observes a {trend} trend over the last 10 syncs.",
-        "prediction": prediction,
-        "probability": calc_prob # Simulated confidence
-    }
+prediction_history = deque(maxlen=100)
 
 # 2. Define Request/Response Models
 class ChatRequest(BaseModel):
@@ -63,79 +20,71 @@ class ChatResponse(BaseModel):
     prediction_type: str
     probability: float
 
-# 3. Startup: Load the legacy model once
-# Using Path for better compatibility across Windows/Linux
-BASE_DIR = Path(__file__).resolve().parent.parent
-MODEL_PATH = BASE_DIR / "demos/usenet_questions/models/data_questions_pipeline.joblib"
-VOCAB_PATH = BASE_DIR / "demos/usenet_questions/models/data_questions_vocab.txt"
+@router.get("/stats")
+async def get_agent_stats():
+    # Filter only the predictions that have been "verified" (success is True or False)
+    verified = [p for p in prediction_history if p['success'] is not None]
+    
+    if not verified:
+        return {"win_rate": 0, "total_trades": 0, "avg_confidence": 0, "status": "Calculating..."}
+    
+    wins = len([p for p in verified if p['success']])
+    total = len(verified)
+    
+    return {
+        "win_rate": round((wins / total) * 100, 2),
+        "total_trades": total,
+        "avg_confidence": round(sum(p['confidence'] for p in verified) / total, 4),
+        "history": list(prediction_history)[-10:] # Return last 10 for the UI
+    }
 
-try:
-    msg_classifier_bundle = joblib.load(MODEL_PATH)
-    # Extract the pipeline from our dictionary bundle
-    msgClassifier = msg_classifier_bundle['pipeline']
-    r = lucy_text.readvocab(VOCAB_PATH)
-    vocab, vocabtf, vocabidf = r[0], r[1], r[2]
-except FileNotFoundError:
-    print(f"❌ ERROR: Lucy AI models not found at {MODEL_PATH}")
-    msgClassifier = None
+# This function would be called inside your /reply endpoint 
+# whenever Lucy makes a market prediction
+def log_prediction(symbol: str, current_price: float, prediction: str, confidence: float):
+    prediction_history.append({
+        "timestamp": time.time(),
+        "symbol": symbol,
+        "price_at_start": current_price,
+        "prediction": prediction, # "Bullish" or "Bearish"
+        "confidence": confidence,
+        "success": None # Will be updated later
+    })
 
-# ... (Imports and Path setup remain the same) ...
+async def verify_predictions(current_market_prices: dict):
+    """
+    Compares historical predictions against current market prices.
+    current_market_prices: {"BTC": 95000, "ETH": 2700, ...}
+    """
+    now = time.time()
+    for p in prediction_history:
+        # Check predictions made more than 5 minutes ago that aren't verified yet
+        if p['success'] is None and (now - p['timestamp']) > 300:
+            current_p = current_market_prices.get(p['symbol'])
+            if not current_p: continue
 
-# 4. The Chat Endpoint
-@router.post("/reply", response_model=ChatResponse)
+            if p['prediction'] == "Bullish":
+                p['success'] = current_p > p['price_at_start']
+            else:
+                p['success'] = current_p < p['price_at_start']
+
+@router.post("/reply")
 async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
-    intent = classify_intent(request.content)
+    # Step 1: What is the user talking about?
+    intent = classify_user_intent(request.content)
     
-    if intent == "TECHNICAL":
-        # Lucy triggers the SVC model and amCharts update
-        return {"content": "Analyzing technical indicators and SVC probability...", "tool": "chart_update"}
-    elif intent == "SENTIMENT":
-        # Lucy scans news headlines or social data
-        return {"content": "Mining current market sentiment and news cycles...", "tool": "sentiment_scan"}
-    
-    return {"content": "How can I help with your market research today?"}
-    try:
-        # 1. Classification Logic (Your SVC Model)
-        fv = lucy_text.genfeatureVectorFromString(request.content, vocab, vocabidf)
-        prediction = msgClassifier.predict([fv])[0]
-        probs = msgClassifier.predict_proba([fv])[0]
+    if intent == "market_query":
+        # Step 2: Analyze the specific token (e.g., BTC)
+        symbol = extract_symbol(request.content)
         
-        is_open = int(prediction) == 1
-        p_type = "Open question" if is_open else "Closed question"
-        class_confidence = float(probs[1] if is_open else probs[0])
-
-        # 2. Market Logic (The Lucy Insight Bridge)
-        content_lower = request.content.lower()
-        # Simple keyword detection
-        target_symbol = "BTC" # Default
-        if "eth" in content_lower or "ethereum" in content_lower:
-            target_symbol = "ETH"
-        elif "sol" in content_lower or "solana" in content_lower:
-            target_symbol = "SOL"
-
-        # Now fetch the real context using your existing function
-        market_info = await get_lucy_insight(target_symbol, db)
+        prices = get_recent_prices(symbol, db)
         
-        # 3. Formulate the "Smart" Reply
-        if is_open:
-            custom_reply = (
-                f"I've classified this as an {p_type.lower()}. "
-                f"Looking at {target_symbol}, {market_info['trend_summary']} "
-                f"The current sentiment is {market_info['prediction']}."
-            )
-        else:
-            custom_reply = f"I've noted your comment. My current analysis for {target_symbol} remains {market_info['prediction']}."
+        if not prices:
+            return {"reply": f"I see you're asking about {symbol}, but I don't have enough data in my memory yet!"}
 
-        # Add the confidence warning if classification is shaky
-        if class_confidence < 0.65:
-            custom_reply += " (I'm leaning towards this interpretation, but clarify if I'm off!)"
-
+        sent, conf = get_market_prediction(prices)
         return {
-            "reply": custom_reply,
-            "prediction_type": p_type,
-            "probability": market_info['probability'] # Drive the gauge with market probability!
+            "reply": f"Scanning the markets for {symbol}... I'm {conf*100:.1f}% confident we're looking at a {sent} trend.",
+            "symbol": symbol
         }
-        
-    except Exception as e:
-        print(f"Prediction Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    
+    return {"reply": "I'm Lucy! Ask me something like 'How is SOL looking?'"}
