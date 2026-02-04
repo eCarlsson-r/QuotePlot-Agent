@@ -35,8 +35,24 @@ scheduler = AsyncIOScheduler()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Start autonomous loops
-    scheduler.add_job(continuous_oracle_sync, 'interval', seconds=30, args=[manager])
-    scheduler.add_job(evaluate_predictions_task, 'interval', minutes=5, args=[manager])
+    scheduler.add_job(
+        continuous_oracle_sync, 
+        'interval', 
+        seconds=30, 
+        id='oracle_sync', 
+        args=[manager], 
+        max_instances=3, # 🛡️ Prevents overlapping runs
+        coalesce=True    # 🛡️ Skips missed runs if the server was down
+    )
+    scheduler.add_job(
+        evaluate_predictions_task, 
+        'interval', 
+        minutes=5, 
+        id='evaluate_predictions', 
+        args=[manager],
+        max_instances=3, # 🛡️ Prevents overlapping runs
+        coalesce=True    # 🛡️ Skips missed runs if the server was down
+    )
     scheduler.start()
     yield
     # Shutdown

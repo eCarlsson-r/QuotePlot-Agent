@@ -1,12 +1,16 @@
 import asyncio
 from datetime import datetime, timedelta
+import json
+import time
+from utils import mine_investor_behavior
 from database import SessionLocal, db_save_price, get_recent_prices, save_prediction_to_db
 from sqlalchemy import text as sql_text
 from models import TokenMap, Stock, PredictionLog
-from brain import get_market_prediction
+from brain import get_market_prediction, get_agent_stats
 import routers.market as market_utils
 
 sync_progress_store = {}
+analysis_cooldowns = {}
 
 async def check_for_data_gaps(symbol: str, threshold_hours: int = 2):
     """Detects if a token is missing data and returns the start date for backfilling."""
@@ -24,34 +28,69 @@ async def check_for_data_gaps(symbol: str, threshold_hours: int = 2):
             return last_dt
     return None
 
+limit_gate = asyncio.Semaphore(10)
+async def fetch_pyth_price_safe(pyth_id):
+    async with limit_gate: # Only 10 tasks can enter this block at once
+        try:
+            # Add a small explicit timeout and retry logic
+            return await market_utils.fetch_pyth_price(pyth_id, timeout=10.0)
+        except Exception:
+            return None
+        
 async def continuous_oracle_sync(ws_manager):
-    """The heartbeat loop."""
-    while True:
+    try:
         with SessionLocal() as db:
             active_tokens = db.query(TokenMap).filter(TokenMap.is_active == True).all()
 
-            for token in active_tokens:
-                # 1. FETCH
-                price = await market_utils.fetch_pyth_price(token.pyth_id)
-                
-                if price:
-                    # 2. STORE (Memory first)
+            tasks = [fetch_pyth_price_safe(t.pyth_id) for t in active_tokens]
+            prices = await asyncio.gather(*tasks)
+
+            for token, price in zip(active_tokens, prices):
+                if price and price != "STALE":
                     db_save_price(token.symbol, price, datetime.now(), db)
                     
-                    # 3. REASON (Brain second)
-                    # We fetch the fresh window including the price we just added
-                    recent_prices = get_recent_prices(token.symbol, db, limit=10)
-                    
-                    if len(recent_prices) >= 10:
-                        description = f"Price is moving from {recent_prices[0]} to {recent_prices[-1]}"
-                        sentiment, confidence = get_market_prediction(description)
-                        try:
-                            await ws_manager.broadcast(f"[BRAIN] 🧠 {token.symbol}: {sentiment} ({confidence*100:.1f}%)")
-                        except: pass
-                        save_prediction_to_db(token.symbol, sentiment, confidence, price, db)
-        
-        await asyncio.sleep(30)
+                    last_run = analysis_cooldowns.get(token.symbol, 0)
+                    current_time = time.time()
 
+                    if (current_time - last_stats_update) > 600: # Update reliability every 10 mins
+                        win_rate, total_trades, streak = get_agent_stats(db, token.symbol)
+                        
+                        stats_payload = {
+                            "type": "agent_stats",
+                            "symbol": token.symbol,
+                            "win_rate": round(win_rate, 2),
+                            "total_trades": total_trades,
+                            "streak": streak
+                        }
+                        await ws_manager.broadcast(json.dumps(stats_payload))
+                        last_stats_update = current_time
+
+                    if (current_time - last_run) > 300:
+                        recent_prices = get_recent_prices(token.symbol, db, limit=10)
+                        
+                        # Check if we hit the threshold
+                        if len(recent_prices) >= 10:
+                            print(f"🧠 Lucy Brain: Triggering analysis for {token.symbol}...")
+                            behavior_context = mine_investor_behavior(db, token.symbol)
+                            sentiment, confidence, insight = get_market_prediction(recent_prices, behavior_context)
+                            save_prediction_to_db(token.symbol, sentiment, confidence, price, db)
+                            
+                            # Inside your 5-minute brain loop in tasks.py
+                            insight_payload = {
+                                "type": "insight_update",
+                                "symbol": token.symbol,
+                                "probability": float(confidence), # e.g., 0.92
+                                "prediction_type": sentiment, # e.g., "Bullish"
+                                "insight_text": insight
+                            }
+                            await ws_manager.broadcast(json.dumps(insight_payload))
+                            analysis_cooldowns[token.symbol] = current_time
+
+    except asyncio.CancelledError:
+        print("🔌 Reloading...")
+        raise
+    except Exception as e:
+        print(f"🚨 Error: {e}")
 
 async def evaluate_predictions_task(ws_manager):
     """The Judge: Compares old predictions with current prices."""
@@ -66,17 +105,41 @@ async def evaluate_predictions_task(ws_manager):
 
             for p in pending:
                 # 2. Get the 'Current' price from our history
-                current_price_row = db.query(Stock).filter(Stock.symbol == p.symbol).order_id(Stock.datetime.desc()).first()
+                current_price_row = db.query(Stock).filter(Stock.symbol == p.symbol).order_by(Stock.datetime.desc()).first()
                 
                 if current_price_row:
-                    actual_move = "BULLISH" if current_price_row.price > p.price_at_prediction else "BEARISH"
-                    p.was_correct = (p.predicted_sentiment == actual_move)
-                    p.is_evaluated = True
-                    p.actual_price_later = current_price_row.price
-                
-                    # 4. BROADCAST THE VERDICT
-                    status = "✅ RIGHT" if p.was_correct else "❌ WRONG"
-                    await ws_manager.broadcast(f"[JUDGE] ⚖️ Verdict: Lucy was {status} on {p.symbol}!")
+                    actual_price = current_price_row.price
+            
+                    # 2. Logic: Did the price go up or down?
+                    # Note: Standardize your strings (e.g., all uppercase) to avoid "Bullish" vs "BULLISH" bugs
+                    actual_move = "BULLISH" if actual_price > p.price_at_prediction else "BEARISH"
+                    predicted = p.predicted_sentiment.upper()
+                    
+                    # 3. Save the Verdict to the Object
+                    p.actual_price_later = actual_price
+                    p.was_correct = (predicted == actual_move)
+                    p.was_evaluated = True  # Crucial: This moves it out of the 'pending' queue
+                    
+                    # 4. Finalize
+                    win_rate, total, streak = get_agent_stats(db, p.symbol)
+    
+                    status_msg = f"⚖️ Verdict: Lucy was {'✅ RIGHT' if p.was_correct else '❌ WRONG'} on {p.symbol}!"
+                    
+                    payload = {
+                        "type": "agent_stats",
+                        "symbol": p.symbol,
+                        "win_rate": win_rate,
+                        "total_trades": total,
+                        "content": status_msg, # This goes to the ThoughtStream
+                        "streak": streak
+                    }
+
+                    # 2. BROADCAST IMMEDIATELY inside the loop
+                    await ws_manager.broadcast(json.dumps(payload))
+                    
+                    # 3. STAGGER (The Secret)
+                    # This gives the WebSocket 10ms to send the packet before the next one
+                    await asyncio.sleep(0.01)
 
             db.commit()
         await asyncio.sleep(3600) # Run every hour

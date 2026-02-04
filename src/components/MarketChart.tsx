@@ -117,7 +117,7 @@ const MarketChart = (props: MarketData) => {
     }
 
     // Update Lucy's Confidence Gauge
-    if (gaugeHandRef.current && props.insight) {
+    if (gaugeHandRef.current && props.insight && props.insight.probability) {
       const probValue = (props.insight.probability || 0) * 100;
       gaugeHandRef.current.animate({ key: "value", to: probValue, duration: 800, easing: am5.ease.out(am5.ease.cubic) });
 

@@ -1,7 +1,7 @@
 "use client";
 import ChatBox from '@/components/ChatBox';
 import MarketChart from '@/components/MarketChart';
-import { TickerInfo } from '@/types/market';
+import { Stats, TickerInfo } from '@/types/market';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
@@ -22,6 +22,9 @@ export default function Dashboard() {
     text: themeMode === 'volatile' ? 'from-red-500 to-orange-500' : 'from-blue-400 to-emerald-400',
     glow: themeMode === 'volatile' ? 'shadow-[0_0_50px_rgba(239,68,68,0.2)]' : ''
   };
+
+  const [logs, setLogs] = useState<string[]>([]);
+  const [stats, setStats] = useState<Stats>({ winRate: 0, totalTrades: 0, streak: 0 });
 
   const [messages, setMessages] = useState([
     { 
@@ -50,12 +53,6 @@ export default function Dashboard() {
         // Update state in one batch to ensure all components stay in sync
         setTickerData(tickers);
         setMarketData(history);
-
-        if (insight.prediction === "Bearish" && insight.probability > 0.85) {
-          setThemeMode('volatile');
-        } else {
-          setThemeMode('normal');
-        }
       } catch (err) {
         console.error("Dashboard Sync Error:", err);
       }
@@ -64,7 +61,7 @@ export default function Dashboard() {
     const interval = setInterval(syncMarket, 5000);
     syncMarket(); // Initial call
     return () => clearInterval(interval);
-  }, [selectedSymbol, insight.prediction, insight.probability]); // Re-sync immediately if the user selects a new Web3 token
+  }, [selectedSymbol]); // Re-sync immediately if the user selects a new Web3 token
 
   const downloadReport = async () => {
     const reportElement = document.getElementById('report-area');
@@ -130,7 +127,12 @@ export default function Dashboard() {
           setMessages={setMessages} 
           setSelectedSymbol={setSelectedSymbol} 
           selectedSymbol={selectedSymbol}
-          onInsightUpdate={setInsight}
+          setInsight={setInsight}
+          stats={stats}
+          logs={logs}
+          setLogs={setLogs}
+          setStats={setStats}
+          setThemeMode={setThemeMode}
         />
 
         <ToastContainer theme="dark" position="bottom-right" />

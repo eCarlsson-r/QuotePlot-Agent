@@ -2,10 +2,11 @@ import time
 from fastapi import Depends, APIRouter
 from collections import deque
 from sqlalchemy.orm import Session
-from brain import classify_user_intent, get_market_prediction # <--- THE NEW BRAIN
-from utils import extract_symbol
+from brain import classify_user_intent, get_market_prediction, get_agent_stats # <--- THE NEW BRAIN
+from utils import extract_symbol, mine_investor_behavior
 from database import get_db, get_recent_prices
 from pydantic import BaseModel
+from models import PredictionLog
 
 # 1. Define the Router
 router = APIRouter(prefix="/api/agent", tags=["agent"])
@@ -20,22 +21,13 @@ class ChatResponse(BaseModel):
     prediction_type: str
     probability: float
 
-@router.get("/stats")
-async def get_agent_stats():
-    # Filter only the predictions that have been "verified" (success is True or False)
-    verified = [p for p in prediction_history if p['success'] is not None]
-    
-    if not verified:
-        return {"win_rate": 0, "total_trades": 0, "avg_confidence": 0, "status": "Calculating..."}
-    
-    wins = len([p for p in verified if p['success']])
-    total = len(verified)
-    
+@router.get("/token-stats/{symbol}")
+async def fetch_token_stats(symbol: str, db: Session = Depends(get_db)):
+    win_rate, total, streak = get_agent_stats(db, symbol)
     return {
-        "win_rate": round((wins / total) * 100, 2),
+        "win_rate": win_rate,
         "total_trades": total,
-        "avg_confidence": round(sum(p['confidence'] for p in verified) / total, 4),
-        "history": list(prediction_history)[-10:] # Return last 10 for the UI
+        "streak": streak
     }
 
 # This function would be called inside your /reply endpoint 
@@ -74,17 +66,20 @@ async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
     
     if intent == "market_query":
         # Step 2: Analyze the specific token (e.g., BTC)
-        symbol = extract_symbol(request.content)
+        symbol = extract_symbol(db, request.content)
         
         prices = get_recent_prices(symbol, db)
         
         if not prices:
             return {"reply": f"I see you're asking about {symbol}, but I don't have enough data in my memory yet!"}
-
-        sent, conf = get_market_prediction(prices)
+        behavior_context = mine_investor_behavior(db, symbol)
+        sent, conf, insight = get_market_prediction(prices, behavior_context)
         return {
-            "reply": f"Scanning the markets for {symbol}... I'm {conf*100:.1f}% confident we're looking at a {sent} trend.",
-            "symbol": symbol
+            "reply": f"I'm {conf*100:.1f}% confident we're looking at a {sent} trend: {insight}",
+            "symbol": symbol,
+            "prediction_type": sent,
+            "probability": conf,
+            "insight_text": insight
         }
     
     return {"reply": "I'm Lucy! Ask me something like 'How is SOL looking?'"}

@@ -2,6 +2,7 @@ import joblib
 import numpy as np
 from pathlib import Path
 from sklearn.pipeline import Pipeline
+from models import PredictionLog
 from lucy import text as lucy_text  # Your custom legacy logic
 
 # Load the model once
@@ -64,16 +65,60 @@ def prepare_market_features(prices: list):
     
     return ((prices_array - mean) / std).flatten()
 
-def get_market_prediction(prices: list):
-    """Logic shared by background tasks and the Chat API."""
-    if not market_brain or len(prices) < 10:
-        # Fallback simple logic
-        is_bullish = prices[-1] > prices[0]
-        return ("Bullish" if is_bullish else "Bearish"), 0.5
-    
-    fv = prepare_market_features(prices[-10:])
-    prediction = market_brain.predict([fv])[0]
-    probs = market_brain.predict_proba([fv])[0]
+def get_market_prediction(price_data, sentiment_text="Neutral"):
+    try:
+        # 1. PRICE MINING (for 'Market Trend' & 'Asset Pricing')
+        # We calculate the delta instead of passing the raw array to the text model
+        price_delta = ((price_data[-1] - price_data[0]) / price_data[0]) * 100
+        
+        # 2. SENTIMENT MINING (for 'Market Sentiment' & 'Investor Behaviour')
+        # We ensure sentiment_text is a string for the TfidfVectorizer
+        # market_brain is your SVC model
+        sentiment_signal = market_brain.predict([str(sentiment_text)])[0]
 
-    sentiment = "BULLISH" if prediction == 1 else "BEARISH"
-    return sentiment, max(probs)
+        # 3. COMPOSITE ANALYSIS
+        # Lucy combines numbers + text to give the "Correct Information"
+        if price_delta > 0.5 and sentiment_signal == "Bullish":
+            confidence = 0.92
+            insight = "Strong accumulation detected alongside positive price action."
+        else:
+            confidence = 0.65
+            insight = "Mixed signals: Market mining shows divergence."
+
+        return sentiment_signal, confidence, insight
+
+    except Exception as e:
+        print(f"Lucy Brain Error: {e}")
+        return "Neutral", 0.0, "System re-calibrating mining parameters."
+
+def get_agent_stats(db, symbol):
+    # Only count predictions where we actually checked the result
+    verified_query = db.query(PredictionLog).filter(
+        PredictionLog.symbol == symbol,
+        PredictionLog.was_evaluated == True
+    )
+    
+    total_trades = verified_query.count()
+    wins = verified_query.filter(PredictionLog.was_correct == True).count()
+    streak = get_streak(db, symbol)
+    
+    win_rate = (wins / total_trades * 100) if total_trades > 0 else 0
+    return round(win_rate, 2), total_trades, streak
+
+def get_streak(db, symbol):
+    # Get the last 10 evaluated predictions, newest first
+    recent = db.query(PredictionLog).filter(
+        PredictionLog.symbol == symbol,
+        PredictionLog.was_evaluated == True
+    ).order_by(PredictionLog.timestamp.desc()).limit(10).all()
+
+    streak = 0
+    if not recent: return 0
+    
+    first_result = recent[0].was_correct
+    for p in recent:
+        if p.was_correct == first_result:
+            streak += 1
+        else:
+            break
+    return streak if first_result else -streak # Positive for win streak, negative for loss

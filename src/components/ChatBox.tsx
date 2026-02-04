@@ -1,39 +1,27 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { Insight } from '@/types/market';
+import { useState } from 'react';
+import { Insight, Stats } from '@/types/market';
 import ThoughtStream from './ThoughtStream';
 import Typewriter from './Typewriter';
 import { ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 
 interface ChatPanelProps {
-  onInsightUpdate: (insight: Insight) => void;
+  setInsight: (insight: Insight) => void;
   messages: { role: string, content: string }[];
   setMessages: React.Dispatch<React.SetStateAction<{ role: string, content: string }[]>>;
   selectedSymbol: string;
   setSelectedSymbol: React.Dispatch<React.SetStateAction<string>>;
+  stats: { winRate: number, totalTrades: number, streak: number };
+  logs: string[];
+  setLogs: React.Dispatch<React.SetStateAction<string[]>>;
+  setStats: (stats: Stats) => void;
+  setThemeMode: React.Dispatch<React.SetStateAction<'normal' | 'volatile'>>;
 }
 
-export default function ChatBox({ onInsightUpdate, messages, setMessages, selectedSymbol, setSelectedSymbol }: ChatPanelProps) {
+export default function ChatBox({ setInsight, messages, setMessages, selectedSymbol, setSelectedSymbol, stats, logs, setLogs, setStats, setThemeMode }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [stats, setStats] = useState({ win_rate: 0, total_trades: 0 });
   const [showLogs, setShowLogs] = useState(true); // Toggle state
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch("http://localhost:8000/api/agent/stats");
-        const data = await res.json();
-        setStats({ win_rate: data.win_rate, total_trades: data.total_trades });
-      } catch (err) {
-        console.error("Failed to fetch Lucy stats:", err);
-      }
-    };
-
-    fetchStats(); // Initial fetch
-    const interval = setInterval(fetchStats, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
 
   const triggerAlert = (symbol: string, sentiment: string, confidence: number) => {
     if (Notification.permission === "granted" && confidence >= 0.90) {
@@ -81,9 +69,10 @@ export default function ChatBox({ onInsightUpdate, messages, setMessages, select
       }
 
       // 💡 Bonus: Update the Gauge with Lucy's classification confidence
-      onInsightUpdate({
+      setInsight({
         probability: data.probability, 
-        prediction: data.prediction_type // This should now be "Bullish" or "Bearish" from brain.py
+        prediction: data.prediction_type,
+        trend_summary: data.insight_text
       });
 
     } catch (error) {
@@ -115,12 +104,25 @@ export default function ChatBox({ onInsightUpdate, messages, setMessages, select
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="text-center">
-            <div className="text-xl font-bold text-white">{stats.win_rate}%</div>
+            <div className="text-xl font-bold text-white">{stats.winRate}%</div>
             <div className="text-[9px] text-slate-500">ACCURACY</div>
           </div>
           <div className="text-center border-l border-slate-700">
-            <div className="text-xl font-bold text-white">{stats.total_trades}</div>
+            <div className="text-xl font-bold text-white">{stats.totalTrades}</div>
             <div className="text-[9px] text-slate-500">SAMPLES</div>
+          </div>
+          <div className="text-center">
+            {/* Render the Streak Badge */}
+            {stats.streak >= 2 && (
+              <span className="badge-fire">
+                🔥 {stats.streak} WIN STREAK
+              </span>
+            )}
+            {stats.streak <= -2 && (
+              <span className="badge-cold">
+                ❄️ {Math.abs(stats.streak)} LOSS STREAK
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -153,7 +155,13 @@ export default function ChatBox({ onInsightUpdate, messages, setMessages, select
       <div className={`transition-all duration-300 ease-in-out border-t border-slate-800/50 ${
         showLogs ? 'h-40 opacity-100' : 'h-0 opacity-0 pointer-events-none'
       }`}>
-        <ThoughtStream />
+        <ThoughtStream 
+            logs={logs} 
+            setLogs={setLogs}
+            setInsight={setInsight}
+            setStats={setStats}
+            setThemeMode={setThemeMode}
+        />
       </div>
 
       <div className="p-4 border-t border-slate-800 bg-slate-900/50">

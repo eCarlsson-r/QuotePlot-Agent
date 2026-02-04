@@ -35,6 +35,12 @@ export interface AgentResponse {
   probability: number;
 }
 
+export interface Stats {
+  winRate: number;
+  totalTrades: number;
+  streak: number;
+}
+
 export interface MarketData {
   data: TickerInfo[];
   tickerData: TickerInfo[];

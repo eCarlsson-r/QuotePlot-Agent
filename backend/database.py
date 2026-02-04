@@ -55,7 +55,8 @@ def save_prediction_to_db(symbol: str, sentiment: str, confidence: float, price:
         predicted_sentiment=sentiment, # "BULLISH" or "BEARISH"
         confidence=confidence,           # e.g., 0.85
         price_at_prediction=price,
-        is_evaluated=False
+        was_evaluated=False,
+        was_correct=None # Explicitly Null until evaluated
     )
     db.add(new_prediction)
     db.commit()

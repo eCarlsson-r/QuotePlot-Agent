@@ -1,3 +1,4 @@
+import time
 import httpx
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -29,11 +30,11 @@ async def get_web3_token_list(db: Session = Depends(get_db)):
 
     # 3. Enrich the data for the Frontend
     for token in tokens:
-        symbol = token['symbol'].upper()
+        symbol = token.symbol.upper()
         pyth_id = pyth_lookup.get(symbol)
         
-        token['has_pro_feed'] = pyth_id is not None
-        token['pyth_id'] = pyth_id
+        token.has_pro_feed = pyth_id is not None
+        token.pyth_id = pyth_id
         
     return tokens
 
@@ -101,9 +102,7 @@ async def fetch_pyth_price(price_id: str):
 
     try:
         client = await get_client()
-        print(f"📡 Sending request to Pyth for {price_id[:8]}...")
         response = await client.get(url, params=params)
-        print(f"📥 Response received! Status: {response.status_code}")
         if response.status_code != 200:
             return None
         data = response.json()
@@ -111,9 +110,16 @@ async def fetch_pyth_price(price_id: str):
         # Safe traversal of the Pyth JSON structure
         if "parsed" in data and len(data["parsed"]) > 0:
             p = data["parsed"][0].get("price", {})
+            publish_time = p.get("publish_time")
+
+            # Check if stale (e.g., older than 24 hours)
+            if (int(time.time()) - publish_time) > 86400:
+                print(f"⚠️ Feed {price_id} is stale.")
+                return "STALE" # Return a unique string to signal deletion
+
             raw_price = float(p.get("price", 0))
             expo = int(p.get("expo", 0))
-            
+
             if raw_price != 0:
                 return raw_price * (10 ** expo)
         

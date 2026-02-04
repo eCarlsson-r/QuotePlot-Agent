@@ -1,8 +1,15 @@
 import { memo, useEffect, useState, useRef } from 'react';
 import Typewriter from './Typewriter';
+import { Insight, Stats } from '@/types/market';
 
-const ThoughtStream = () => {
-    const [logs, setLogs] = useState<string[]>([]);
+interface ThoughtStreamProps {
+    logs: string[];
+    setLogs: React.Dispatch<React.SetStateAction<string[]>>;
+    setInsight: (insight: Insight) => void;
+    setStats: (stats: Stats) => void;
+    setThemeMode: React.Dispatch<React.SetStateAction<'normal' | 'volatile'>>;
+}
+const ThoughtStream = ({logs, setLogs, setInsight, setStats, setThemeMode}: ThoughtStreamProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     
     const [status, setStatus] = useState<'online' | 'offline' | 'connecting'>('connecting');
@@ -30,17 +37,34 @@ const ThoughtStream = () => {
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                // Ensure data.content exists before adding
+
+                if (data.type === "insight_update") {
+                    console.info("Insight Data : ", data);
+                    setInsight(data); // Handles probability & prediction
+                    
+                    if (data.prediction === "Bearish" && data.probability > 0.85) {
+                        setThemeMode('volatile');
+                    } else {
+                        setThemeMode('normal');
+                    }
+                } 
+                
+                if (data.type === "agent_stats") {
+                    console.info("Stats Data : ", data);
+                    // You can pass this through Dashboard as well
+                    setStats(data); 
+                }
+
                 if (data.content) {
                     setLogs((prev) => [...prev.slice(-19), data.content]);
                 }
             } catch (e) {
-                console.error(e);
+                console.error("Parsing Error:", e);
             }
         };
 
         return () => ws.close();
-    }, []);
+    }, [setLogs, setInsight, setStats, setThemeMode]);
 
     useEffect(() => {
         // scrollIntoView now exists because we typed the Ref

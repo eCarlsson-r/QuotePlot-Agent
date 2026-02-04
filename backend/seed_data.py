@@ -1,63 +1,73 @@
+from utils import get_tokens
+from database import SessionLocal, engine
+from sqlalchemy import func
+from models import Base, InvestorBehavior, TokenMap   # Ensure TokenMap is defined in models.py
+import random
+from datetime import datetime
 import asyncio
-from sqlalchemy.orm import Session
-from database import SessionLocal, engine, Base  
-from models import TokenMap # Ensure TokenMap is defined in models.py
 
-# The "Rosetta Stone" mapping
-WEB3_TOKENS = [
-    {"symbol": "BTC", "cg_id": "bitcoin", "pyth_id": "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43"},
-    {"symbol": "ETH", "cg_id": "ethereum", "pyth_id": "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"},
-    {"symbol": "SOL", "cg_id": "solana",   "pyth_id": "0xef0d8b6fda2ce353c7d576f13303d840a3a29f31a69078ed3383a1523f6e5944"},
-    {"symbol": "LINK", "cg_id": "chainlink", "pyth_id": "0x86e660506085f1c911850125585097486e921d743a6d71b312be0e80678d9101"},
-    {"symbol": "ARB", "cg_id": "arbitrum", "pyth_id": "0x3fa42523f204ca433433583da89c7484d4127027387e35b0b2e3a15e011438a0"}
-]
-
-def seed_tokens():
+async def seed_web3_tokens():
     db = SessionLocal()
-    tokens = db.query(TokenMap).filter(TokenMap.is_active == True).all()
+    raw_token_data = await get_tokens();
     
-    for t_data in tokens:
-        print(t_data);
-        # Avoid duplicates
-        exists = db.query(TokenMap).filter(TokenMap.symbol == t_data["symbol"]).first()
-        if not exists:
-            new_token = TokenMap(**t_data)
-            db.add(new_token)
+    if not raw_token_data:
+        print("⚠️ Warning: Token list is empty. Check your API/Utility.")
+        return
+    for data in raw_token_data:
+        # 1. Normalize Symbol (Crucial for MySQL/Foreign Keys)
+        sym = data.get("symbol")
+        cg_id = data.get("cg_id")
+        
+        existing = db.query(TokenMap).filter(TokenMap.symbol == sym).first()
+        
+        if not existing:
+            new_entry = TokenMap(
+                symbol=sym,
+                coingecko_id=cg_id, # Use .get() to prevent KeyErrors
+                pyth_id=data.get("pyth_id"),
+                is_active=True
+            )
+            db.add(new_entry)
+            # Flush tells MySQL about the change without finishing the transaction
+            db.flush() 
+            print(f"✅ Added {sym} (CG: {cg_id})")
+        else:
+            print(f"⏩ {existing.symbol} already exists.")
     
+    db.commit() # Save everything once loop is safe
+    print("🏁 Token seeding successful.")
+
+def seed_whale_data():
+    db = SessionLocal()
+    # We'll pull symbols directly from the tokens we just seeded
+    active_symbols = [t.symbol for t in db.query(TokenMap).all()]
+    
+    for symbol in active_symbols:
+        # Create a "Whale Accumulation" pattern for testing
+        for _ in range(5):
+            move = InvestorBehavior(
+                symbol=symbol,
+                flow_type="Cold Storage", # Bullish signal
+                volume=random.uniform(100, 500),
+                timestamp=func.now()
+            )
+            db.add(move)
     db.commit()
     db.close()
-    print("✅ BTC and SOL added to TokenMap.")
+    print("🐋 Whale flows seeded. Lucy can now detect 'Strong Accumulation'.")
 
-def seed_database():
-    print("🌱 Starting token mapping seed...")
-    # Create tables if they don't exist
+async def run_all_seeds():
+    # 1. Initialize MySQL Tables
     Base.metadata.create_all(bind=engine)
     
-    db = SessionLocal()
-    try:
-        for token in WEB3_TOKENS:
-            # Check for existing record
-            existing = db.query(TokenMap).filter(TokenMap.symbol == token["symbol"]).first()
-            if not existing:
-                new_entry = TokenMap(
-                    symbol=token["symbol"],
-                    coingecko_id=token["cg_id"],
-                    pyth_id=token["pyth_id"],
-                    is_active=True
-                )
-                db.add(new_entry)
-                print(f"✅ Added {token['symbol']}")
-            else:
-                print(f"⏩ {token['symbol']} already exists, skipping.")
-        
-        db.commit()
-        print("✨ Seeding complete!")
-    except Exception as e:
-        print(f"❌ Error seeding: {e}")
-        db.rollback()
-    finally:
-        db.close()
+    # 2. Seed the Token Map
+    await seed_web3_tokens()
+    
+    # 3. Seed the Whale Data (if this is async, use await)
+    # If seed_whale_data is sync, just call it normally
+    seed_whale_data() 
+    
+    print("🚀 All systems seeded and ready for Lucy!")
 
 if __name__ == "__main__":
-    seed_database()
-    seed_tokens()
+    asyncio.run(run_all_seeds())
