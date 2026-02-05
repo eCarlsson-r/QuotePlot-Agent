@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as am5 from "@amcharts/amcharts5";
 import * as am5xy from "@amcharts/amcharts5/xy";
 import * as am5radar from "@amcharts/amcharts5/radar";
@@ -17,6 +17,26 @@ const MarketChart = (props: MarketData) => {
   const gaugeHandRef = useRef<am5.DataItem<am5xy.IValueAxisDataItem> | null>(null);
   const clockHandRef = useRef<am5radar.ClockHand | null>(null);
   const percentLabelRef = useRef<am5.Label | null>(null);
+  const tickerRefs = useRef(new Map());
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toUpperCase();
+    setSearchTerm(val);
+
+    // Find the first symbol that STARTS with the search term
+    const bestMatch = Object.keys(props.tickerData).find(s => s.startsWith(val));
+    
+    if (bestMatch) {
+        props.setSelectedSymbol(bestMatch);
+        props.fetchLucyAnalysis();
+    }
+  };
+
+  // Filtered data for the UI
+  const filteredTickers = Object.entries(props.tickerData || {}).filter(([symbol]) =>
+    symbol.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // 1. INITIALIZATION: Setup the Chart and Gauge once.
   useLayoutEffect(() => {
@@ -80,8 +100,14 @@ const MarketChart = (props: MarketData) => {
     return () => root.dispose();
   }, []);
 
-  // 2. DATA INJECTION: Listen for updates from the Dashboard Parent
   useEffect(() => {
+    if (tickerRefs.current.has(props.selectedSymbol)) {
+        tickerRefs.current.get(props.selectedSymbol).scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+        });
+    }
+
     if (!seriesRef.current && chartRef.current && rootRef.current) {
         seriesRef.current = chartRef.current.series.push(
           am5xy.LineSeries.new(rootRef.current, {
@@ -129,7 +155,7 @@ const MarketChart = (props: MarketData) => {
         percentLabelRef.current.setAll({ text: `${Math.round(probValue)}%`, fill: color });
       }
     }
-  }, [props.data, props.insight, props.selectedSymbol, props.themeMode]);
+  }, [props.data, props.insight, props.selectedSymbol, props.themeMode, props.fetchLucyAnalysis]);
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-slate-950 text-slate-200 overflow-hidden">
@@ -137,13 +163,21 @@ const MarketChart = (props: MarketData) => {
       <section className="w-full md:w-[40%] border-r border-slate-800 flex flex-col">
         <div className="p-4 bg-slate-900/50">
           <h2 className="text-xl font-bold text-blue-400">Web3 Analyst</h2>
+
+          <input 
+            type="text" 
+            placeholder="Search Token..." 
+            className="w-full p-2 bg-black/50 border border-white/10 rounded mb-4"
+            onChange={handleSearch}
+          />
         </div>
         <div className="flex-1 overflow-auto">
           <table className="w-full text-sm">
             <tbody>
-              {Object.entries(props.tickerData || {}).map(([symbol, info]: [string, TickerInfo]) => (
+              {filteredTickers.map(([symbol, info]: [string, TickerInfo]) => (
                 <tr key={symbol} onClick={() => props.setSelectedSymbol(symbol)} 
-                    className={`cursor-pointer ${props.selectedSymbol === symbol ? 'bg-blue-900/20' : ''}`}>
+                    ref={(el) => { tickerRefs.current.set(symbol, el); }}
+                    className={`cursor-pointer ${props.selectedSymbol === symbol ? 'bg-blue-600/30' : ''}`}>
                   <td className="p-3 font-bold">{symbol}</td>
                   <td className="p-3 text-right">${info.price.toLocaleString()}</td>
                 </tr>

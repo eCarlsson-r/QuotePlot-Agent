@@ -1,7 +1,8 @@
 import asyncio, time
+from utils import fetch_pyth_price
 from database import SessionLocal, engine
 from models import TokenMap, Stock, PredictionLog
-from routers import market, agent
+from routers import agent
 import models
 
 # This command tells SQLAlchemy to create any tables defined in models.py 
@@ -43,7 +44,7 @@ async def run_diagnostics():
     # 2. Check Pyth Connectivity
     print("🌐 Testing Oracle connectivity...")
     btc_id = "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43"
-    price = await market.fetch_pyth_price(btc_id)
+    price = await fetch_pyth_price(btc_id)
     if price is not None:
         print(f"✅ ORACLE: Pyth connection active. Live BTC: ${price:,.2f}")
     else:

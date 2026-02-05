@@ -1,9 +1,7 @@
 from sqlalchemy import create_engine, text as sql_text
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
-from datetime import datetime, timedelta
 
-from models import PredictionLog
+from models import InvestorBehavior, PredictionLog, Stock
 
 # Replace with your actual MySQL credentials from your PHP configuration
 # Example from your search.php: server="127.0.0.1", user="root", database="stocksdata"
@@ -27,16 +25,7 @@ def get_db():
         db.close()
 
 def get_recent_prices(symbol: str, db: Session, limit: int = 10):
-    """Retrieves the last X price points for a token."""
-    query = sql_text("""
-        SELECT price FROM stocks 
-        WHERE symbol = :s 
-        ORDER BY datetime DESC LIMIT :l
-    """)
-    rows = db.execute(query, {"s": symbol.upper(), "l": limit}).mappings().all()
-    
-    # We get them DESC (newest first), so we reverse to get chronological order
-    return [float(r['price']) for r in rows][::-1]
+    return db.query(Stock).filter(Stock.symbol == symbol).order_by(Stock.datetime.desc()).limit(limit).all()
 
 def db_save_price(symbol: str, price: float, dt: str, db: Session):
     """Unified database saver with conflict resolution."""
@@ -46,6 +35,16 @@ def db_save_price(symbol: str, price: float, dt: str, db: Session):
         ON DUPLICATE KEY UPDATE price = VALUES(price)
     """)
     db.execute(query, {"s": symbol, "p": price, "dt": dt})
+    db.commit()
+
+def db_save_behavior(data: InvestorBehavior, db: Session):
+    """Unified database saver with conflict resolution."""
+    query = sql_text("""
+        INSERT INTO investor_behavior (symbol, flow_type, volume, timestamp) 
+        VALUES (:s, :ft, :v, :ts)
+        ON DUPLICATE KEY UPDATE volume = VALUES(volume)
+    """)
+    db.execute(query, {"s": data['symbol'], "ft": data['flow_type'], "v": data['volume'], "ts": data['timestamp']})
     db.commit()
 
 def save_prediction_to_db(symbol: str, sentiment: str, confidence: float, price: float, db: Session):

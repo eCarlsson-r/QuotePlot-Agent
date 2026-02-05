@@ -1,21 +1,12 @@
-import time
-import httpx
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func, select, text as sql_text
+from brain import analyze_divergence
 from database import get_db
 from models import TokenMap, Stock  # Ensure these are your model classes
 from utils import get_tokens
 
 router = APIRouter(prefix="/api/market", tags=["market"])
-
-# --- SHARED STATE ---
-http_client: httpx.AsyncClient = None  # Global client initialized in lifespan
-async def get_client():
-    global http_client
-    if http_client is None or http_client.is_closed:
-        http_client = httpx.AsyncClient(timeout=10.0)
-    return http_client
 
 # --- ENDPOINTS ---
 
@@ -91,43 +82,7 @@ async def get_all_tickers(db: Session = Depends(get_db)):
 
     return result
 
-
-# --- UTILITIES (The "Clean" Core) ---
-
-async def fetch_pyth_price(price_id: str):
-    # Pyth Hermes V2 endpoint
-    url = "https://hermes.pyth.network/v2/updates/price/latest"
-    # Pass params as a dict to let the library handle the [] encoding
-    params = {"ids[]": [price_id]}
-
-    try:
-        client = await get_client()
-        response = await client.get(url, params=params)
-        if response.status_code != 200:
-            return None
-        data = response.json()
-        
-        # Safe traversal of the Pyth JSON structure
-        if "parsed" in data and len(data["parsed"]) > 0:
-            p = data["parsed"][0].get("price", {})
-            publish_time = p.get("publish_time")
-
-            # Check if stale (e.g., older than 24 hours)
-            if (int(time.time()) - publish_time) > 86400:
-                print(f"⚠️ Feed {price_id} is stale.")
-                return "STALE" # Return a unique string to signal deletion
-
-            raw_price = float(p.get("price", 0))
-            expo = int(p.get("expo", 0))
-
-            if raw_price != 0:
-                return raw_price * (10 ** expo)
-        
-        return None # Explicitly return None if data is missing
-    except httpx.ConnectError:
-        print("❌ Connection Error: Could not reach Pyth servers.")
-    except httpx.TimeoutException:
-        print("❌ Timeout Error: Pyth took too long to respond.")
-    except Exception as e:
-        print(f"❌ Unexpected Error during fetch: {type(e).__name__} - {e}")
-    return None
+@router.get("/insight/{symbol}")
+async def get_token_insight(symbol: str, db: Session = Depends(get_db)):
+    insight = analyze_divergence(db, symbol.upper())
+    return {"symbol": symbol, "insight": insight}

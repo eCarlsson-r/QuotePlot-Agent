@@ -16,7 +16,7 @@ async def seed_web3_tokens():
     for data in raw_token_data:
         # 1. Normalize Symbol (Crucial for MySQL/Foreign Keys)
         sym = data.get("symbol")
-        cg_id = data.get("cg_id")
+        cg_id = data.get("coingecko_id")
         
         existing = db.query(TokenMap).filter(TokenMap.symbol == sym).first()
         
@@ -25,7 +25,8 @@ async def seed_web3_tokens():
                 symbol=sym,
                 coingecko_id=cg_id, # Use .get() to prevent KeyErrors
                 pyth_id=data.get("pyth_id"),
-                is_active=True
+                is_active=True,
+                address=data.get("address")
             )
             db.add(new_entry)
             # Flush tells MySQL about the change without finishing the transaction

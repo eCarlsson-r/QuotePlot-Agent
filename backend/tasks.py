@@ -1,16 +1,18 @@
 import asyncio
 from datetime import datetime, timedelta
 import json
+from dotenv import load_dotenv
 import time
-from utils import mine_investor_behavior
-from database import SessionLocal, db_save_price, get_recent_prices, save_prediction_to_db
+from utils import format_lucy_log, mine_investor_behavior, fetch_pyth_price, fetch_dex_whales, map_to_investor_behavior, infer_whale_activity
+from database import SessionLocal, db_save_behavior, db_save_price, get_recent_prices, save_prediction_to_db
 from sqlalchemy import text as sql_text
 from models import TokenMap, Stock, PredictionLog
 from brain import get_market_prediction, get_agent_stats
-import routers.market as market_utils
 
+load_dotenv()
 sync_progress_store = {}
 analysis_cooldowns = {}
+last_stats_update = time.time()
 
 async def check_for_data_gaps(symbol: str, threshold_hours: int = 2):
     """Detects if a token is missing data and returns the start date for backfilling."""
@@ -33,11 +35,13 @@ async def fetch_pyth_price_safe(pyth_id):
     async with limit_gate: # Only 10 tasks can enter this block at once
         try:
             # Add a small explicit timeout and retry logic
-            return await market_utils.fetch_pyth_price(pyth_id, timeout=10.0)
+            return await fetch_pyth_price(pyth_id, timeout=10.0)
         except Exception:
             return None
         
 async def continuous_oracle_sync(ws_manager):
+    global last_stats_update
+    print("SYNC RUNNING...")
     try:
         with SessionLocal() as db:
             active_tokens = db.query(TokenMap).filter(TokenMap.is_active == True).all()
@@ -48,6 +52,20 @@ async def continuous_oracle_sync(ws_manager):
             for token, price in zip(active_tokens, prices):
                 if price and price != "STALE":
                     db_save_price(token.symbol, price, datetime.now(), db)
+                    whale_data = await fetch_dex_whales(token.address) # 👈 Using your new column!
+    
+                    if whale_data:
+                        data = map_to_investor_behavior(token.symbol, whale_data['type'], whale_data['amount'])
+                    else:
+                        # Fallback to Ghost Whale logic if DEX data is missing
+                        history = db.query(Stock).filter(Stock.symbol == token.symbol).limit(2).all()
+                        inferred = infer_whale_activity(history)
+                        data = map_to_investor_behavior(token.symbol, inferred, 500.0)
+
+                    # 3. Save both to DB
+                    db_save_behavior(data, db)
+                    
+                    print(f"✅ Synced {token.symbol}: ${price:.4f} | Movement: {data['flow_type']}")
                     
                     last_run = analysis_cooldowns.get(token.symbol, 0)
                     current_time = time.time()
@@ -66,13 +84,16 @@ async def continuous_oracle_sync(ws_manager):
                         last_stats_update = current_time
 
                     if (current_time - last_run) > 300:
-                        recent_prices = get_recent_prices(token.symbol, db, limit=10)
+                        recent_prices = get_recent_prices(token.symbol, db, limit=100)
                         
                         # Check if we hit the threshold
                         if len(recent_prices) >= 10:
                             print(f"🧠 Lucy Brain: Triggering analysis for {token.symbol}...")
                             behavior_context = mine_investor_behavior(db, token.symbol)
-                            sentiment, confidence, insight = get_market_prediction(recent_prices, behavior_context)
+                            if (behavior_context == "No recent whale activity detected (Insufficient Data)"):
+                                print(f"🧠 Lucy Brain: {behavior_context}")
+                            
+                            sentiment, confidence, insight = get_market_prediction(db, recent_prices, token.symbol, behavior_context)
                             save_prediction_to_db(token.symbol, sentiment, confidence, price, db)
                             
                             # Inside your 5-minute brain loop in tasks.py
@@ -81,11 +102,15 @@ async def continuous_oracle_sync(ws_manager):
                                 "symbol": token.symbol,
                                 "probability": float(confidence), # e.g., 0.92
                                 "prediction_type": sentiment, # e.g., "Bullish"
-                                "insight_text": insight
+                                "insight_text": format_lucy_log(token.symbol, float(confidence), insight)
                             }
                             await ws_manager.broadcast(json.dumps(insight_payload))
                             analysis_cooldowns[token.symbol] = current_time
-
+                elif price == "STALE":
+                    deleted = db.query(TokenMap).filter(TokenMap.pyth_id == token.pyth_id).delete()
+                    if deleted:
+                        db.commit()
+                    
     except asyncio.CancelledError:
         print("🔌 Reloading...")
         raise
@@ -161,7 +186,7 @@ async def backfill_history_task(symbol: str, start_dt: datetime):
         current_ts = int((start_dt + timedelta(hours=i)).timestamp())
         
         # Call the new universal fetcher with the ID
-        price = await market_utils.fetch_pyth_price(token.pyth_id, current_ts)
+        price = await fetch_pyth_price(token.pyth_id, current_ts)
         
         if price:
             with SessionLocal() as db:

@@ -10,7 +10,20 @@ import { Download } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { requestNotificationPermission } from '@/utils/notifications';
 
+const getSessionId = () => {
+  // 1. Check if we are in the browser
+  if (typeof window === "undefined") return "server_placeholder";
+
+  let sessionId = sessionStorage.getItem("lucy_session_id");
+  if (!sessionId) {
+    sessionId = Math.random().toString(36).substring(2, 15); // Simple random ID
+    sessionStorage.setItem("lucy_session_id", sessionId);
+  }
+  return sessionId;
+};
+
 export default function Dashboard() {
+  const userSessionId = getSessionId();
   const [marketData, setMarketData] = useState<TickerInfo[]>([]);
   const [tickerData, setTickerData] = useState<TickerInfo[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState("BTC");
@@ -32,6 +45,24 @@ export default function Dashboard() {
       content: `System initialized. Current analysis for ${selectedSymbol}: ${insight.prediction}` 
     }
   ]);
+
+  const fetchLucyAnalysis = async () => {
+      try {
+          const response = await fetch("http://localhost:8000/api/agent/reply", {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                  content: `Analyze ${selectedSymbol}`,
+                  session_id: userSessionId
+              })
+          });
+          const data = await response.json();
+          // This will trigger your Gauge update via props.insight
+          setInsight(data); 
+      } catch (error) {
+          console.error("Lucy failed to speak:", error);
+      }
+  };
 
   useEffect(() => {
     requestNotificationPermission();
@@ -114,16 +145,20 @@ export default function Dashboard() {
         <div className="lg:col-span-3 bg-slate-900 rounded-2xl p-6 shadow-2xl border border-slate-800">
           <MarketChart 
             data={marketData} 
+            userSessionId={userSessionId} 
             tickerData={tickerData}
             insight={insight} 
+            setInsight={setInsight}
             selectedSymbol={selectedSymbol}
             setSelectedSymbol={setSelectedSymbol} 
             themeMode={themeMode}
+            fetchLucyAnalysis={fetchLucyAnalysis}
           />
         </div>
 
         <ChatBox
           messages={messages} 
+          userSessionId={userSessionId} 
           setMessages={setMessages} 
           setSelectedSymbol={setSelectedSymbol} 
           selectedSymbol={selectedSymbol}

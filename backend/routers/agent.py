@@ -1,4 +1,5 @@
-import time
+import os
+from dotenv import load_dotenv
 from fastapi import Depends, APIRouter
 from collections import deque
 from sqlalchemy.orm import Session
@@ -6,7 +7,46 @@ from brain import classify_user_intent, get_market_prediction, get_agent_stats #
 from utils import extract_symbol, mine_investor_behavior
 from database import get_db, get_recent_prices
 from pydantic import BaseModel
-from models import PredictionLog
+from google import genai
+from google.genai import types
+
+# Load environment variables
+load_dotenv()
+
+class LucyAgent:
+    def __init__(self):
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY not found in environment variables")
+        
+        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        self.model_id = "gemini-3.0-flash"
+        self.chat_sessions = {}
+
+    def get_or_create_session(self, session_id: str):
+        if session_id not in self.chat_sessions:
+            # Create a fresh session with Lucy's personality
+            self.chat_sessions[session_id] = self.client.chats.create(
+                model="gemini-2.5-flash",
+                config=types.GenerateContentConfig(
+                    system_instruction="You are Lucy. Be witty, concise, and refer to past data."
+                )
+            )
+        return self.chat_sessions[session_id]
+
+    async def get_narration(self, session_id, symbol, sentiment, confidence, insight, behavior, user_query):
+        # 1. Grab this specific user's chat history
+        chat = self.get_or_create_session(session_id)
+        
+        # 2. Add the current market data as context
+        full_prompt = f"CONTEXT: {symbol} is {sentiment} ({confidence*100}%). {insight}. Whales: {behavior}. USER: {user_query}"
+        
+        # 3. Use send_message (this automatically updates the history/Interaction IDs internally)
+        response = chat.send_message(full_prompt)
+        return response.text
+
+# Initialize once to reuse the connection
+lucy_brain = LucyAgent()
 
 # 1. Define the Router
 router = APIRouter(prefix="/api/agent", tags=["agent"])
@@ -15,6 +55,7 @@ prediction_history = deque(maxlen=100)
 # 2. Define Request/Response Models
 class ChatRequest(BaseModel):
     content: str
+    session_id: str
 
 class ChatResponse(BaseModel):
     reply: str
@@ -30,35 +71,6 @@ async def fetch_token_stats(symbol: str, db: Session = Depends(get_db)):
         "streak": streak
     }
 
-# This function would be called inside your /reply endpoint 
-# whenever Lucy makes a market prediction
-def log_prediction(symbol: str, current_price: float, prediction: str, confidence: float):
-    prediction_history.append({
-        "timestamp": time.time(),
-        "symbol": symbol,
-        "price_at_start": current_price,
-        "prediction": prediction, # "Bullish" or "Bearish"
-        "confidence": confidence,
-        "success": None # Will be updated later
-    })
-
-async def verify_predictions(current_market_prices: dict):
-    """
-    Compares historical predictions against current market prices.
-    current_market_prices: {"BTC": 95000, "ETH": 2700, ...}
-    """
-    now = time.time()
-    for p in prediction_history:
-        # Check predictions made more than 5 minutes ago that aren't verified yet
-        if p['success'] is None and (now - p['timestamp']) > 300:
-            current_p = current_market_prices.get(p['symbol'])
-            if not current_p: continue
-
-            if p['prediction'] == "Bullish":
-                p['success'] = current_p > p['price_at_start']
-            else:
-                p['success'] = current_p < p['price_at_start']
-
 @router.post("/reply")
 async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
     # Step 1: What is the user talking about?
@@ -67,19 +79,44 @@ async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
     if intent == "market_query":
         # Step 2: Analyze the specific token (e.g., BTC)
         symbol = extract_symbol(db, request.content)
+
+        if (symbol):
+            prices = get_recent_prices(symbol, db)
+            
+            if not prices:
+                return {"reply": f"I see you're asking about {symbol}, but I don't have enough data in my memory yet!"}
+            
+            behavior_context = mine_investor_behavior(db, symbol)
+            if (behavior_context == "No recent whale activity detected (Insufficient Data)"):
+                return {"reply": behavior_context}
+            
+            sent, conf, insight = get_market_prediction(db, prices, symbol, behavior_context)
+
+            narration = await lucy_brain.get_narration(
+                session_id=request.session_id, 
+                symbol=symbol, 
+                sentiment=sent, 
+                confidence=conf, 
+                insight=insight, 
+                behavior=behavior_context,
+                user_query=request.content
+            )
         
-        prices = get_recent_prices(symbol, db)
-        
-        if not prices:
-            return {"reply": f"I see you're asking about {symbol}, but I don't have enough data in my memory yet!"}
-        behavior_context = mine_investor_behavior(db, symbol)
-        sent, conf, insight = get_market_prediction(prices, behavior_context)
-        return {
-            "reply": f"I'm {conf*100:.1f}% confident we're looking at a {sent} trend: {insight}",
-            "symbol": symbol,
-            "prediction_type": sent,
-            "probability": conf,
-            "insight_text": insight
-        }
-    
+            return {
+                "reply": narration,
+                "symbol": symbol,
+                "prediction_type": sent,
+                "probability": conf,
+                "insight_text": insight
+            }
+        else:
+            narration = await lucy_brain.get_narration(
+                session_id=request.session_id, 
+                user_query=request.content
+            )
+
+            return {
+                "reply": narration
+            }
+
     return {"reply": "I'm Lucy! Ask me something like 'How is SOL looking?'"}

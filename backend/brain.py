@@ -2,7 +2,7 @@ import joblib
 import numpy as np
 from pathlib import Path
 from sklearn.pipeline import Pipeline
-from models import PredictionLog
+from models import InvestorBehavior, PredictionLog, Stock
 from lucy import text as lucy_text  # Your custom legacy logic
 
 # Load the model once
@@ -65,26 +65,31 @@ def prepare_market_features(prices: list):
     
     return ((prices_array - mean) / std).flatten()
 
-def get_market_prediction(price_data, sentiment_text="Neutral"):
+def get_market_prediction(db, price_data, symbol, sentiment_text="Neutral"):
     try:
-        # 1. PRICE MINING (for 'Market Trend' & 'Asset Pricing')
-        # We calculate the delta instead of passing the raw array to the text model
-        price_delta = ((price_data[-1] - price_data[0]) / price_data[0]) * 100
+        # 1. Get the Math-based Divergence Analysis first
+        # This tells us exactly WHAT the whales are doing vs Price
+        divergence_report = analyze_divergence(db, symbol)
         
-        # 2. SENTIMENT MINING (for 'Market Sentiment' & 'Investor Behaviour')
-        # We ensure sentiment_text is a string for the TfidfVectorizer
-        # market_brain is your SVC model
+        # 2. Run your SVC Model (The "Social Lobe")
+        # This tells us the "Vibe" of the market sentiment
         sentiment_signal = market_brain.predict([str(sentiment_text)])[0]
 
-        # 3. COMPOSITE ANALYSIS
-        # Lucy combines numbers + text to give the "Correct Information"
-        if price_delta > 0.5 and sentiment_signal == "Bullish":
-            confidence = 0.92
-            insight = "Strong accumulation detected alongside positive price action."
+        # 3. COMPOSITE ANALYSIS (The Decision)
+        price_delta = ((price_data[-1].price - price_data[0].price) / price_data[0].price) * 100
+        insight = divergence_report 
+        
+        # Adjust confidence based on whether the Model and the Divergence agree
+        if "CONFIRMATION" in divergence_report and sentiment_signal == "Bullish":
+            confidence = 0.98  # Extremely high confidence
+        elif "DIVERGENCE" in divergence_report:
+            confidence = 0.85  # High confidence that something is wrong
         else:
             confidence = 0.65
-            insight = "Mixed signals: Market mining shows divergence."
 
+        if price_delta > 2.0 and "CONFIRMATION" in divergence_report:
+            # This is the "Strong Buy" you had before, but now backed by whale data
+            insight = "Healthy rally: Price delta is positive and confirmed by whale accumulation."
         return sentiment_signal, confidence, insight
 
     except Exception as e:
@@ -122,3 +127,103 @@ def get_streak(db, symbol):
         else:
             break
     return streak if first_result else -streak # Positive for win streak, negative for loss
+
+# market.py or analysis.py
+from sqlalchemy import func
+from datetime import datetime, timedelta
+
+def analyze_divergence(db, symbol: str):
+    """
+    Compares the last 24h Price Delta with the last 24h Whale Net Flow.
+    Returns a sentiment signal for Lucy's brain.
+    """
+    one_day_ago = datetime.now() - timedelta(hours=24)
+
+    # 1. Calculate Price Delta
+    recent_prices = db.query(Stock).filter(Stock.symbol == symbol, Stock.datetime >= one_day_ago)\
+                      .order_by(Stock.datetime.asc()).all()
+    
+    if len(recent_prices) < 2: return "Neutral (Insufficient Data)"
+    
+    price_start = float(recent_prices[0].price)
+    price_end = float(recent_prices[-1].price)
+    price_delta_pct = ((price_end - price_start) / price_start) * 100
+
+    # 2. Calculate Whale Net Flow (Accumulation vs Distribution)
+    inflow = db.query(func.sum(InvestorBehavior.volume)).filter(
+        InvestorBehavior.symbol == symbol,
+        InvestorBehavior.flow_type == "Cold Storage", # Bullish move
+        InvestorBehavior.timestamp >= one_day_ago
+    ).scalar() or 0
+
+    outflow = db.query(func.sum(InvestorBehavior.volume)).filter(
+        InvestorBehavior.symbol == symbol,
+        InvestorBehavior.flow_type == "Exchange Inflow", # Bearish move
+        InvestorBehavior.timestamp >= one_day_ago
+    ).scalar() or 0
+
+    net_flow = inflow - outflow
+
+    # 3. DIVERGENCE LOGIC
+    # CASE A: Bearish Divergence (Price Up, Whales Selling)
+    if price_delta_pct > 3.0 and net_flow < 0:
+        return "⚠️ BEARISH DIVERGENCE: Price is pumping, but whales are exiting. Potential trap."
+
+    # CASE B: Bullish Divergence (Price Down, Whales Buying)
+    elif price_delta_pct < -3.0 and net_flow > 0:
+        return "🚀 BULLISH DIVERGENCE: Price is dipping, but whales are accumulating. Strong buy signal."
+
+    # CASE C: Confirmation (Both moving together)
+    elif price_delta_pct > 0 and net_flow > 0:
+        return "✅ BULLISH CONFIRMATION: Market and whales are aligned in accumulation."
+
+    return "Neutral: Market noise."# market.py or analysis.py
+from sqlalchemy import func
+from datetime import datetime, timedelta
+
+def analyze_divergence(db, symbol: str):
+    """
+    Compares the last 24h Price Delta with the last 24h Whale Net Flow.
+    Returns a sentiment signal for Lucy's brain.
+    """
+    one_day_ago = datetime.now() - timedelta(hours=24)
+
+    # 1. Calculate Price Delta
+    recent_prices = db.query(Stock).filter(Stock.symbol == symbol, Stock.datetime >= one_day_ago)\
+                      .order_by(Stock.datetime.asc()).all()
+    
+    if len(recent_prices) < 2: return "Neutral (Insufficient Data)"
+    
+    price_start = float(recent_prices[0].price)
+    price_end = float(recent_prices[-1].price)
+    price_delta_pct = ((price_end - price_start) / price_start) * 100
+
+    # 2. Calculate Whale Net Flow (Accumulation vs Distribution)
+    inflow = db.query(func.sum(InvestorBehavior.volume)).filter(
+        InvestorBehavior.symbol == symbol,
+        InvestorBehavior.flow_type == "Cold Storage", # Bullish move
+        InvestorBehavior.timestamp >= one_day_ago
+    ).scalar() or 0
+
+    outflow = db.query(func.sum(InvestorBehavior.volume)).filter(
+        InvestorBehavior.symbol == symbol,
+        InvestorBehavior.flow_type == "Exchange Inflow", # Bearish move
+        InvestorBehavior.timestamp >= one_day_ago
+    ).scalar() or 0
+
+    net_flow = inflow - outflow
+
+    # 3. DIVERGENCE LOGIC
+    # CASE A: Bearish Divergence (Price Up, Whales Selling)
+    if price_delta_pct > 3.0 and net_flow < 0:
+        return "⚠️ BEARISH DIVERGENCE: Price is pumping, but whales are exiting. Potential trap."
+
+    # CASE B: Bullish Divergence (Price Down, Whales Buying)
+    elif price_delta_pct < -3.0 and net_flow > 0:
+        return "🚀 BULLISH DIVERGENCE: Price is dipping, but whales are accumulating. Strong buy signal."
+
+    # CASE C: Confirmation (Both moving together)
+    elif price_delta_pct > 0 and net_flow > 0:
+        return "✅ BULLISH CONFIRMATION: Market and whales are aligned in accumulation."
+
+    return "Neutral: Market noise."

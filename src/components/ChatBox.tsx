@@ -1,24 +1,11 @@
 "use client";
 import { useState } from 'react';
-import { Insight, Stats } from '@/types/market';
+import { ChatPanelProps } from '@/types/market';
 import ThoughtStream from './ThoughtStream';
 import Typewriter from './Typewriter';
 import { ChevronDown, ChevronUp, Terminal } from 'lucide-react';
 
-interface ChatPanelProps {
-  setInsight: (insight: Insight) => void;
-  messages: { role: string, content: string }[];
-  setMessages: React.Dispatch<React.SetStateAction<{ role: string, content: string }[]>>;
-  selectedSymbol: string;
-  setSelectedSymbol: React.Dispatch<React.SetStateAction<string>>;
-  stats: { winRate: number, totalTrades: number, streak: number };
-  logs: string[];
-  setLogs: React.Dispatch<React.SetStateAction<string[]>>;
-  setStats: (stats: Stats) => void;
-  setThemeMode: React.Dispatch<React.SetStateAction<'normal' | 'volatile'>>;
-}
-
-export default function ChatBox({ setInsight, messages, setMessages, selectedSymbol, setSelectedSymbol, stats, logs, setLogs, setStats, setThemeMode }: ChatPanelProps) {
+export default function ChatBox({ userSessionId, setInsight, messages, setMessages, selectedSymbol, setSelectedSymbol, stats, logs, setLogs, setStats, setThemeMode }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showLogs, setShowLogs] = useState(true); // Toggle state
@@ -46,7 +33,7 @@ export default function ChatBox({ setInsight, messages, setMessages, selectedSym
       const response = await fetch("http://localhost:8000/api/agent/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: userContent }),
+        body: JSON.stringify({ content: userContent, session_id: userSessionId })
       });
 
       if (!response.ok) throw new Error("Lucy is offline.");

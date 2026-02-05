@@ -22,7 +22,7 @@ const ThoughtStream = ({logs, setLogs, setInsight, setStats, setThemeMode}: Thou
 
     const getLogStyle = (content: string) => {
         if (content.startsWith("[ERROR]")) return { color: "#ff4d4d", fontWeight: "bold" as const };
-        if (content.startsWith("[SUCCESS]")) return { color: "#00ff41" };
+        if (content.startsWith("[SUCCESS]")) return { color: "#3c413e" };
         if (content.startsWith("[WARN]")) return { color: "#ffcc00" };
         return { color: "#00d4ff" };
     };
@@ -36,27 +36,22 @@ const ThoughtStream = ({logs, setLogs, setInsight, setStats, setThemeMode}: Thou
 
         ws.onmessage = (event) => {
             try {
-                const data = JSON.parse(event.data);
+                const data = JSON.parse(JSON.parse(event.data).content);
 
                 if (data.type === "insight_update") {
-                    console.info("Insight Data : ", data);
                     setInsight(data); // Handles probability & prediction
-                    
                     if (data.prediction === "Bearish" && data.probability > 0.85) {
                         setThemeMode('volatile');
                     } else {
                         setThemeMode('normal');
                     }
+
+                    setLogs((prev) => [...prev.slice(-19), data.insight_text]);
                 } 
                 
                 if (data.type === "agent_stats") {
-                    console.info("Stats Data : ", data);
                     // You can pass this through Dashboard as well
                     setStats(data); 
-                }
-
-                if (data.content) {
-                    setLogs((prev) => [...prev.slice(-19), data.content]);
                 }
             } catch (e) {
                 console.error("Parsing Error:", e);

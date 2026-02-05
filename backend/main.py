@@ -1,4 +1,3 @@
-import httpx
 import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,11 +28,14 @@ class ConnectionManager:
                 pass # Handle stale connections safely
 
 manager = ConnectionManager()
-scheduler = AsyncIOScheduler()
 
 # --- 2. Lifespan with Heartbeat ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    scheduler = AsyncIOScheduler()
+
+    print("🚀 [LUCY] Starting Autonomous Brain Loops...")
+
     # Start autonomous loops
     scheduler.add_job(
         continuous_oracle_sync, 
@@ -54,8 +56,12 @@ async def lifespan(app: FastAPI):
         coalesce=True    # 🛡️ Skips missed runs if the server was down
     )
     scheduler.start()
+
+    print("✅ [LUCY] Scheduler started successfully.")
+
     yield
-    # Shutdown
+    
+    print("🛑 [LUCY] Shutting down scheduler...")
     scheduler.shutdown()
 
 app = FastAPI(title="Lucy Agent Web3", lifespan=lifespan)

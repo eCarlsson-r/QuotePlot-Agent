@@ -26,6 +26,7 @@ class TokenMap(Base):
     symbol = Column(String(10), unique=True, index=True) # e.g., "BTC"
     coingecko_id = Column(String(50))                   # e.g., "bitcoin"
     pyth_id = Column(String(100), nullable=True)        # The 0x... hex string
+    address = Column(String, nullable=True) # 👈 Add this line
     is_active = Column(Boolean, default=True)
 
     def __repr__(self):
