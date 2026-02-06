@@ -36,8 +36,8 @@ export interface AgentResponse {
 }
 
 export interface Stats {
-  winRate: number;
-  totalTrades: number;
+  win_rate: number;
+  total_trades: number;
   streak: number;
 }
 
@@ -60,7 +60,7 @@ export interface ChatPanelProps {
   setMessages: React.Dispatch<React.SetStateAction<{ role: string, content: string }[]>>;
   selectedSymbol: string;
   setSelectedSymbol: React.Dispatch<React.SetStateAction<string>>;
-  stats: { winRate: number, totalTrades: number, streak: number };
+  stats: Stats;
   logs: string[];
   setLogs: React.Dispatch<React.SetStateAction<string[]>>;
   setStats: (stats: Stats) => void;

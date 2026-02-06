@@ -91,27 +91,27 @@ export default function ChatBox({ userSessionId, setInsight, messages, setMessag
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="text-center">
-            <div className="text-xl font-bold text-white">{stats.winRate}%</div>
+            <div className="text-xl font-bold text-white">{stats.win_rate}%</div>
             <div className="text-[9px] text-slate-500">ACCURACY</div>
           </div>
           <div className="text-center border-l border-slate-700">
-            <div className="text-xl font-bold text-white">{stats.totalTrades}</div>
+            <div className="text-xl font-bold text-white">{stats.total_trades}</div>
             <div className="text-[9px] text-slate-500">SAMPLES</div>
           </div>
-          <div className="text-center">
+        </div>
+        <div className="text-center">
             {/* Render the Streak Badge */}
             {stats.streak >= 2 && (
-              <span className="badge-fire">
+              <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 inset-ring inset-ring-red-600/10">
                 🔥 {stats.streak} WIN STREAK
               </span>
             )}
             {stats.streak <= -2 && (
-              <span className="badge-cold">
+              <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 inset-ring inset-ring-blue-700/10">
                 ❄️ {Math.abs(stats.streak)} LOSS STREAK
               </span>
             )}
           </div>
-        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 font-mono text-xs">
@@ -144,6 +144,7 @@ export default function ChatBox({ userSessionId, setInsight, messages, setMessag
       }`}>
         <ThoughtStream 
             logs={logs} 
+            selectedSymbol={selectedSymbol}
             setLogs={setLogs}
             setInsight={setInsight}
             setStats={setStats}

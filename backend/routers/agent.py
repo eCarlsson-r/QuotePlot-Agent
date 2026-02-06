@@ -92,23 +92,32 @@ async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
             
             sent, conf, insight = get_market_prediction(db, prices, symbol, behavior_context)
 
-            narration = await lucy_brain.get_narration(
-                session_id=request.session_id, 
-                symbol=symbol, 
-                sentiment=sent, 
-                confidence=conf, 
-                insight=insight, 
-                behavior=behavior_context,
-                user_query=request.content
-            )
-        
-            return {
-                "reply": narration,
-                "symbol": symbol,
-                "prediction_type": sent,
-                "probability": conf,
-                "insight_text": insight
-            }
+            try :
+                narration = await lucy_brain.get_narration(
+                    session_id=request.session_id, 
+                    symbol=symbol, 
+                    sentiment=sent, 
+                    confidence=conf, 
+                    insight=insight, 
+                    behavior=behavior_context,
+                    user_query=request.content
+                )
+            
+                return {
+                    "reply": narration,
+                    "symbol": symbol,
+                    "prediction_type": sent,
+                    "probability": conf,
+                    "insight_text": insight
+                }
+            except Exception:
+                return {
+                    "reply": insight,
+                    "symbol": symbol,
+                    "prediction_type": sent,
+                    "probability": conf,
+                    "insight_text": insight
+                }
         else:
             narration = await lucy_brain.get_narration(
                 session_id=request.session_id, 

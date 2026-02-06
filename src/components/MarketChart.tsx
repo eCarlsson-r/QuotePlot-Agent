@@ -102,10 +102,14 @@ const MarketChart = (props: MarketData) => {
 
   useEffect(() => {
     if (tickerRefs.current.has(props.selectedSymbol)) {
+      try {
         tickerRefs.current.get(props.selectedSymbol).scrollIntoView({
             behavior: 'smooth',
             block: 'nearest',
         });
+      } catch (e) {
+        console.info(e);
+      }
     }
 
     if (!seriesRef.current && chartRef.current && rootRef.current) {

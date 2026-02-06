@@ -4,13 +4,20 @@ import { Insight, Stats } from '@/types/market';
 
 interface ThoughtStreamProps {
     logs: string[];
+    selectedSymbol: string;
     setLogs: React.Dispatch<React.SetStateAction<string[]>>;
     setInsight: (insight: Insight) => void;
     setStats: (stats: Stats) => void;
     setThemeMode: React.Dispatch<React.SetStateAction<'normal' | 'volatile'>>;
 }
-const ThoughtStream = ({logs, setLogs, setInsight, setStats, setThemeMode}: ThoughtStreamProps) => {
+const ThoughtStream = ({logs, selectedSymbol, setLogs, setInsight, setStats, setThemeMode}: ThoughtStreamProps) => {
+    const masterLogsRef = useRef<Record<string, string[]>>({});
     const scrollRef = useRef<HTMLDivElement>(null);
+    const wsRef = useRef<WebSocket | null>(null);
+
+    const [visibleLogs, setVisibleLogs] = useState<string[]>([]);
+    const queueRef = useRef<string[]>([]);
+    const [isTyping, setIsTyping] = useState(false);
     
     const [status, setStatus] = useState<'online' | 'offline' | 'connecting'>('connecting');
 
@@ -21,45 +28,102 @@ const ThoughtStream = ({logs, setLogs, setInsight, setStats, setThemeMode}: Thou
     };
 
     const getLogStyle = (content: string) => {
-        if (content.startsWith("[ERROR]")) return { color: "#ff4d4d", fontWeight: "bold" as const };
-        if (content.startsWith("[SUCCESS]")) return { color: "#3c413e" };
+        if (content.startsWith("[ERROR]")) return { color: "#ff3b30", fontWeight: "bold" as const };
+        if (content.startsWith("[SUCCESS]")) return { color: "#00ff41" };
         if (content.startsWith("[WARN]")) return { color: "#ffcc00" };
         return { color: "#00d4ff" };
     };
 
-    useEffect(() => {
-        const ws = new WebSocket("ws://localhost:8000/ws/thoughts");
+    const processQueue = () => {
+        if (queueRef.current.length > 0) {
+            const nextLog = queueRef.current.shift(); // Remove first item
+            if (nextLog) {
+                setLogs(prev => [...prev.slice(-19), nextLog]);
+                setIsTyping(true);
+            }
+        } else {
+            setIsTyping(false);
+        }
+    };
 
-        ws.onopen = () => setStatus('online');
-        ws.onclose = () => setStatus('offline');
-        ws.onerror = () => setStatus('offline');
+    useEffect(() => {
+        setTimeout(() => {
+            const history = masterLogsRef.current[selectedSymbol] || [];
+            setVisibleLogs(history.slice(-20)); // Show last 20 recorded logs
+            queueRef.current = []; // Clear any pending typewriter animations from old symbol
+            setIsTyping(false);
+        }, 0);
+    }, [selectedSymbol]);
+
+    useEffect(() => {
+        if (wsRef.current) return;
+
+        const ws = new WebSocket("ws://localhost:8000/ws/thoughts");
+        wsRef.current = ws;
 
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(JSON.parse(event.data).content);
 
-                if (data.type === "insight_update") {
-                    setInsight(data); // Handles probability & prediction
-                    if (data.prediction === "Bearish" && data.probability > 0.85) {
-                        setThemeMode('volatile');
-                    } else {
-                        setThemeMode('normal');
+                // 2. Safely update Parent (Dashboard) asynchronously
+                setTimeout(() => {
+                    if (data.type === "insight_update" && data.symbol === selectedSymbol) {
+                        setInsight(data);
+                        setThemeMode(data.prediction === "Bearish" && data.probability > 0.85 ? 'volatile' : 'normal');
+                    } else if (data.type === "agent_stats") {
+                        setStats(data);
                     }
+                }, 0);
 
-                    setLogs((prev) => [...prev.slice(-19), data.insight_text]);
-                } 
-                
-                if (data.type === "agent_stats") {
-                    // You can pass this through Dashboard as well
-                    setStats(data); 
+                if (data.type === "insight_update") {
+                    const symbol = data.symbol;
+                    const text = data.insight_text;
+
+                    // ALWAYS store in master cache (background task)
+                    if (!masterLogsRef.current[symbol]) masterLogsRef.current[symbol] = [];
+                    masterLogsRef.current[symbol].push(text);
+                    if (masterLogsRef.current[symbol].length > 50) masterLogsRef.current[symbol].shift();
+
+                    if (symbol === selectedSymbol) {
+                        // Push to the Ref queue (doesn't trigger render)
+                        queueRef.current.push(text);
+                        // If Lucy is idle, kickstart the typing
+                        setIsTyping(currentlyTyping => {
+                            if (!currentlyTyping) {
+                                processQueue();
+                                return true;
+                            }
+                            return true;
+                        });
+                    }
+                } else {
+                    const newLog = data.content;
+
+                    // Push to the Ref queue (doesn't trigger render)
+                    queueRef.current.push(newLog);
+                    
+                    // If Lucy is idle, kickstart the typing
+                    setIsTyping(currentlyTyping => {
+                        if (!currentlyTyping) {
+                            processQueue();
+                            return true;
+                        }
+                        return true;
+                    });
                 }
-            } catch (e) {
-                console.error("Parsing Error:", e);
-            }
+            } catch (e) { console.error("WS Error:", e); }
         };
 
-        return () => ws.close();
-    }, [setLogs, setInsight, setStats, setThemeMode]);
+        // Cleanup: Use a small timeout to allow remounting without closing
+        return () => {
+            setTimeout(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                    wsRef.current = null;
+                }
+            }, 100);
+        };
+    }, []);
 
     useEffect(() => {
         // scrollIntoView now exists because we typed the Ref
@@ -84,12 +148,12 @@ const ThoughtStream = ({logs, setLogs, setInsight, setStats, setThemeMode}: Thou
             </div>
 
             {/* Log Feed */}
-            {logs.map((log, i) => (
+            {visibleLogs.map((log, i) => (
                 <div key={`${i}-${log.substring(0, 5)}`} style={getLogStyle(log)} className="mb-1">
                     <span className="opacity-50 mr-2">{">"}</span>
                     {/* Only the NEWEST log gets the typewriter effect if you want, 
                         or apply to all for a cool cascading effect */}
-                    <Typewriter text={log.replace(/\[.*?\] /, "")} delay={15} />
+                    <Typewriter text={log.replace(/\[.*?\] /, "")} delay={15} onComplete={i === logs.length - 1 ? processQueue : undefined} />
                 </div>
             ))}
             <div ref={scrollRef} />
