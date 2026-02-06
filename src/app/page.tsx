@@ -48,7 +48,7 @@ export default function Dashboard() {
 
   const fetchLucyAnalysis = async () => {
       try {
-          const response = await fetch(`/api/agent/reply`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agent/reply`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
@@ -72,8 +72,8 @@ export default function Dashboard() {
         setInsight({ prediction: "Analyzing...", probability: 0 });
         // 1. Fetch everything in parallel for maximum speed
         const [tickerRes, historyRes] = await Promise.all([
-          fetch("/api/market/tickers"),
-          fetch(`/api/market/history/${selectedSymbol}`)
+          fetch(process.env.NEXT_PUBLIC_API_URL+"/api/market/tickers"),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/market/history/${selectedSymbol}`)
         ]);
 
         const [tickers, history] = await Promise.all([
