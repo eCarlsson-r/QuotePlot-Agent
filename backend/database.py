@@ -1,11 +1,13 @@
 from sqlalchemy import create_engine, text as sql_text
 from sqlalchemy.orm import Session, sessionmaker
-
+import os
+from dotenv import load_dotenv
 from models import InvestorBehavior, PredictionLog, Stock
 
+load_dotenv()
 # Replace with your actual MySQL credentials from your PHP configuration
 # Example from your search.php: server="127.0.0.1", user="root", database="stocksdata"
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://root:@127.0.0.1:3306/stocksdata"
+SQLALCHEMY_DATABASE_URL = "mysql+pymysql://"+os.getenv("DB_USER")+":"+os.getenv("DB_PASS")+"@"+os.getenv("DB_HOST")+":"+os.getenv("DB_PORT")+"/"+os.getenv("DB_NAME")
 
 # pool_size and max_overflow help manage the connection pool for multiple routers
 engine = create_engine(

@@ -56,8 +56,8 @@ export interface MarketData {
 export interface ChatPanelProps {
   userSessionId: string;
   setInsight: (insight: Insight) => void;
-  messages: { role: string, content: string }[];
-  setMessages: React.Dispatch<React.SetStateAction<{ role: string, content: string }[]>>;
+  messages: ChatMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   selectedSymbol: string;
   setSelectedSymbol: React.Dispatch<React.SetStateAction<string>>;
   stats: Stats;
@@ -65,4 +65,15 @@ export interface ChatPanelProps {
   setLogs: React.Dispatch<React.SetStateAction<string[]>>;
   setStats: (stats: Stats) => void;
   setThemeMode: React.Dispatch<React.SetStateAction<'normal' | 'volatile'>>;
+}
+
+export interface ChatMessage {
+  role: string;
+  type?: string;
+  content?: string;
+  data?: {
+    sentiment: string;
+    summary: string;
+    top_gainers: string[];
+  }
 }

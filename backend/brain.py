@@ -37,7 +37,8 @@ except Exception as e:
 def classify_user_intent(message: str):
     INTENT_KEYWORDS = {
         "MARKET": ["price", "chart", "analysis", "technical", "prediction", "indicators", "target", "news", "opinion", "sentiment", "feeling", "social", "twitter", "hype"],
-        "GREETING": ["hello", "hi", "hey", "lucy", "morning", "help"]
+        "GREETING": ["hello", "hi", "hey", "lucy", "morning", "help"],
+        "GLOBAL_KEYWORDS": ["market", "everything", "all stocks", "overall", "crypto world"]
     }
     text_lower = message.lower()
 
@@ -46,6 +47,9 @@ def classify_user_intent(message: str):
     
     if any(kw in text_lower for kw in INTENT_KEYWORDS["GREETING"]):
         return "general_chat"
+    
+    if any(kw in text_lower for kw in INTENT_KEYWORDS["GLOBAL_KEYWORDS"]):
+        return "global_market_query"
 
     """Translates text into an intent (Market vs General)."""
     if msg_classifier:

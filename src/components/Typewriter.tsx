@@ -6,18 +6,23 @@ const Typewriter = ({ text, delay = 20, onComplete }: { text: string; delay?: nu
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    let index = 0;
-        const interval = setInterval(() => {
-            setCurrentText(text.slice(0, index + 1));
-            index++;
-            
-            if (index >= text.length) {
-                clearInterval(interval);
-                setDone(true);
-            }
-        }, delay);
+    if (!text) {
+        setDone(true);
+        return;
+    }
 
-        return () => clearInterval(interval);
+    let index = 0;
+    const interval = setInterval(() => {
+        setCurrentText(text.slice(0, index + 1));
+        index++;
+        
+        if (index >= text.length) {
+            clearInterval(interval);
+            setDone(true);
+        }
+    }, delay);
+
+    return () => clearInterval(interval);
   }, [delay, text]);
 
   useEffect(() => {

@@ -1,13 +1,13 @@
 "use client";
 import ChatBox from '@/components/ChatBox';
 import MarketChart from '@/components/MarketChart';
-import { Stats, TickerInfo } from '@/types/market';
+import { ChatMessage, Stats, TickerInfo } from '@/types/market';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Download } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import { requestNotificationPermission } from '@/utils/notifications';
 
 const getSessionId = () => {
@@ -37,9 +37,9 @@ export default function Dashboard() {
   };
 
   const [logs, setLogs] = useState<string[]>([]);
-  const [stats, setStats] = useState<Stats>({ winRate: 0, totalTrades: 0, streak: 0 });
+  const [stats, setStats] = useState<Stats>({ win_rate: 0, total_trades: 0, streak: 0 });
 
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<ChatMessage[]>([
     { 
       role: 'assistant', 
       content: `System initialized. Current analysis for ${selectedSymbol}: ${insight.prediction}` 
@@ -48,7 +48,7 @@ export default function Dashboard() {
 
   const fetchLucyAnalysis = async () => {
       try {
-          const response = await fetch("http://localhost:8000/api/agent/reply", {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/agent/reply`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
@@ -72,8 +72,8 @@ export default function Dashboard() {
         setInsight({ prediction: "Analyzing...", probability: 0 });
         // 1. Fetch everything in parallel for maximum speed
         const [tickerRes, historyRes] = await Promise.all([
-          fetch("http://localhost:8000/api/market/tickers"),
-          fetch(`http://localhost:8000/api/market/history/${selectedSymbol}`)
+          fetch(process.env.NEXT_PUBLIC_API_URL+"/api/market/tickers"),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/market/history/${selectedSymbol}`)
         ]);
 
         const [tickers, history] = await Promise.all([

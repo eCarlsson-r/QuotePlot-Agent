@@ -1,11 +1,15 @@
 import json
+import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from routers import market, agent
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from tasks import continuous_oracle_sync, evaluate_predictions_task
+from dotenv import load_dotenv
+from mangum import Mangum
 
+load_dotenv()
 # --- 1. WebSocket Manager for the Thought Stream ---
 class ConnectionManager:
     def __init__(self):
@@ -69,7 +73,7 @@ app = FastAPI(title="Lucy Agent Web3", lifespan=lifespan)
 # --- 3. Middleware & Routers (STILL ACTIVE!) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[os.getenv("FRONTEND_URL")],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -92,3 +96,5 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+handler = Mangum(app)

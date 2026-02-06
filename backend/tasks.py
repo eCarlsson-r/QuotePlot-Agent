@@ -1,7 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta
 import json
-from dotenv import load_dotenv
 import time
 from utils import format_lucy_log, mine_investor_behavior, fetch_pyth_price, fetch_dex_whales, map_to_investor_behavior, infer_whale_activity
 from database import SessionLocal, db_save_behavior, db_save_price, get_recent_prices, save_prediction_to_db
@@ -9,7 +8,6 @@ from sqlalchemy import text as sql_text
 from models import TokenMap, Stock, PredictionLog
 from brain import get_market_prediction, get_agent_stats
 
-load_dotenv()
 sync_progress_store = {}
 analysis_cooldowns = {}
 last_stats_update = time.time()

@@ -1,13 +1,13 @@
 import asyncio
-import random
+import requests
 import time
 import httpx
 import re
-import numpy as np
 from sqlalchemy import func
 from datetime import datetime, timedelta
 from models import InvestorBehavior, TokenMap
 
+user_sessions = {}
 http_client: httpx.AsyncClient = None  # Global client initialized in lifespan
 async def get_client():
     global http_client
@@ -90,7 +90,41 @@ async def get_tokens():
 
         return token_list
 
-def extract_symbol(db, text: str):
+def get_fear_and_greed():
+    """Fetches current crypto market sentiment."""
+    try:
+        url = "https://api.alternative.me/fng/"
+        response = requests.get(url).json()
+        data = response['data'][0]
+        
+        return {
+            "value": data['value'],
+            "sentiment": data['value_classification'], # e.g., "Greed"
+            "timestamp": data['timestamp']
+        }
+    except Exception as e:
+        print(f"Sentiment Error: {e}")
+        return {"value": "50", "sentiment": "Neutral"}
+        
+def get_global_movers():
+    """Fetches top 3 gainers and losers from CoinGecko."""
+    try:
+        # Free Demo API endpoint for market data
+        url = "https://api.coingecko.com/api/v3/coins/markets"
+        params = {
+            "vs_currency": "usd",
+            "order": "price_change_percentage_24h_desc",
+            "per_page": 5,
+            "page": 1
+        }
+        data = requests.get(url, params=params).json()
+        
+        gainers = [f"{c['symbol'].upper()} (+{round(c['price_change_percentage_24h'], 1)}%)" for c in data[:3]]
+        return {"top_gainers": gainers}
+    except Exception as e:
+        return {"top_gainers": []}
+    
+def extract_symbol(db, text: str, session_id: str = "default_user"):
     """
     Scans text for crypto symbols. 
     Priority: 1. Uppercase symbols (BTC) 2. Known lowercase keywords.
@@ -98,9 +132,10 @@ def extract_symbol(db, text: str):
     # Look for 3-5 consecutive uppercase letters (e.g., "Tell me about SOL")
     found = re.findall(r'\b[A-Z]{3,5}\b', text)
     if found:
-        symbol = db.query(TokenMap).filter(TokenMap.symbol == found[0]).first()
-        if symbol:
-            return symbol.symbol
+        symbol_obj = db.query(TokenMap).filter(TokenMap.symbol == found[0]).first()
+        if symbol_obj:
+            user_sessions[session_id] = symbol_obj.symbol
+            return symbol_obj.symbol
 
     # Fallback: check for common lowercase mentions
     text_lower = text.lower()
@@ -108,8 +143,8 @@ def extract_symbol(db, text: str):
     for name, sym in common_map.items():
         if name in text_lower:
             return sym
-            
-    return "BTC"  # Default to BTC if nothing is found
+    
+    return user_sessions.get(session_id, "BTC")  # Default to BTC if nothing is found
 
 
 async def fetch_pyth_price(price_id: str, timeout: float = 10.0):

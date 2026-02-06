@@ -58,7 +58,7 @@ const ThoughtStream = ({logs, selectedSymbol, setLogs, setInsight, setStats, set
     useEffect(() => {
         if (wsRef.current) return;
 
-        const ws = new WebSocket("ws://localhost:8000/ws/thoughts");
+        const ws = new WebSocket(process.env.NEXT_PUBLIC_WS_URL+"/ws/thoughts");
         wsRef.current = ws;
 
         ws.onmessage = (event) => {
@@ -70,7 +70,7 @@ const ThoughtStream = ({logs, selectedSymbol, setLogs, setInsight, setStats, set
                     if (data.type === "insight_update" && data.symbol === selectedSymbol) {
                         setInsight(data);
                         setThemeMode(data.prediction === "Bearish" && data.probability > 0.85 ? 'volatile' : 'normal');
-                    } else if (data.type === "agent_stats") {
+                    } else if (data.type === "agent_stats" && data.symbol === selectedSymbol) {
                         setStats(data);
                     }
                 }, 0);

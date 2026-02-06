@@ -6,5 +6,7 @@ export const requestNotificationPermission = async () => {
 
   if (Notification.permission !== "granted") {
     await Notification.requestPermission();
+  } else {
+    new Notification("🎯 Lucy Alerts Active", { body: "You will now receive high-confidence trade signals." });
   }
 };

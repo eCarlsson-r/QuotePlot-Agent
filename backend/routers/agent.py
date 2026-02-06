@@ -4,7 +4,7 @@ from fastapi import Depends, APIRouter
 from collections import deque
 from sqlalchemy.orm import Session
 from brain import classify_user_intent, get_market_prediction, get_agent_stats # <--- THE NEW BRAIN
-from utils import extract_symbol, mine_investor_behavior
+from utils import extract_symbol, mine_investor_behavior, get_fear_and_greed, get_global_movers
 from database import get_db, get_recent_prices
 from pydantic import BaseModel
 from google import genai
@@ -35,14 +35,14 @@ class LucyAgent:
         return self.chat_sessions[session_id]
 
     async def get_narration(self, session_id, symbol, sentiment, confidence, insight, behavior, user_query):
-        # 1. Grab this specific user's chat history
-        chat = self.get_or_create_session(session_id)
-        
-        # 2. Add the current market data as context
         full_prompt = f"CONTEXT: {symbol} is {sentiment} ({confidence*100}%). {insight}. Whales: {behavior}. USER: {user_query}"
         
         # 3. Use send_message (this automatically updates the history/Interaction IDs internally)
-        response = chat.send_message(full_prompt)
+        return await self.generate(full_prompt, session_id)
+    
+    async def generate(self, prompt, session_id):
+        chat = self.get_or_create_session(session_id)
+        response = chat.send_message(prompt)
         return response.text
 
 # Initialize once to reuse the connection
@@ -118,14 +118,37 @@ async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
                     "probability": conf,
                     "insight_text": insight
                 }
-        else:
-            narration = await lucy_brain.get_narration(
-                session_id=request.session_id, 
-                user_query=request.content
-            )
+    elif intent == "global_market_query":
+        sentiment = get_fear_and_greed()
+        movers = get_global_movers()
 
-            return {
-                "reply": narration
+        prompt = f"""
+        The user is asking about the general market. 
+        Current Sentiment: {sentiment['sentiment']} ({sentiment['value']}/100)
+        Top Performers: {', '.join(movers['top_gainers'])}
+        
+        Provide a concise analyst summary.
+        """
+
+        summary = await lucy_brain.generate(prompt, request.session_id)
+
+        return {
+            "type": "global_market_update",
+            "content": {
+                "title": "Global Market Briefing",
+                "sentiment": f"{sentiment['sentiment']} ({sentiment['value']}/100)",
+                "top_gainers": movers['top_gainers'],
+                "summary": summary
             }
+        }
+    else:
+        narration = await lucy_brain.get_narration(
+            session_id=request.session_id, 
+            user_query=request.content
+        )
+
+        return {
+            "reply": narration
+        }
 
     return {"reply": "I'm Lucy! Ask me something like 'How is SOL looking?'"}
