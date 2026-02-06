@@ -41,7 +41,7 @@ export default function ChatBox({ userSessionId, setInsight, messages, setMessag
 
     try {
       // 2. Call your FastAPI /reply endpoint
-      const response = await fetch(process.env.NEXT_PUBLIC_API_URL+"/api/agent/reply", {
+      const response = await fetch("/api/agent/reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: userContent, session_id: userSessionId })
