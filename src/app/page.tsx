@@ -5,7 +5,6 @@ import { ChatMessage, Stats, TickerInfo } from '@/types/market';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import { Download } from 'lucide-react';
 import html2canvas from 'html2canvas-pro';
 import { requestNotificationPermission } from '@/utils/notifications';
@@ -126,7 +125,7 @@ export default function Dashboard() {
       <div className={`flex justify-between items-center mb-4 border-b ${theme.border} pb-4`}>
         <div className="flex items-center gap-2">
           <Image src="/logo.png" width="100" height="50" alt="QuotePlot Agent" />
-          <h1 className={`text-2xl font-bold bg-gradient-to-r ${theme.text} bg-clip-text text-transparent`}>
+          <h1 className={`text-2xl font-bold bg-linear-to-r ${theme.text} bg-clip-text text-transparent`}>
             QuotePlot Agent Dashboard
           </h1>
         </div>

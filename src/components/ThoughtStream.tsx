@@ -58,12 +58,13 @@ const ThoughtStream = ({logs, selectedSymbol, setLogs, setInsight, setStats, set
     useEffect(() => {
         if (wsRef.current) return;
 
-        const ws = new WebSocket(process.env.NEXT_PUBLIC_WS_URL+"/ws/thoughts");
+        const ws = new WebSocket(process.env.NEXT_PUBLIC_API_URL+"/ws/thoughts");
         wsRef.current = ws;
 
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(JSON.parse(event.data).content);
+                if (data) setStatus("online");
 
                 // 2. Safely update Parent (Dashboard) asynchronously
                 setTimeout(() => {
@@ -111,7 +112,10 @@ const ThoughtStream = ({logs, selectedSymbol, setLogs, setInsight, setStats, set
                         return true;
                     });
                 }
-            } catch (e) { console.error("WS Error:", e); }
+            } catch (e) { 
+                setStatus("offline");
+                console.error("WS Error:", e); 
+            }
         };
 
         // Cleanup: Use a small timeout to allow remounting without closing
@@ -131,7 +135,7 @@ const ThoughtStream = ({logs, selectedSymbol, setLogs, setInsight, setStats, set
     }, [logs]);
 
     return (
-        <div className="thought-stream p-4 rounded-lg overflow-y-auto max-h-[300px] font-mono text-[11px] leading-tight">
+        <div className="thought-stream p-4 rounded-lg overflow-y-auto max-h-75 font-mono text-[11px] leading-tight">
             {/* Header / Heartbeat */}
             <div className="flex items-center justify-between mb-3 border-b border-[#00ff41]/30 pb-2">
                 <span className="font-bold tracking-tighter">LUCY_CORE_LOGS</span>
