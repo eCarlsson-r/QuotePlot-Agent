@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}QuotePlot Agent Dashboard{% endblock %}
+
+{% block body %}
+<div id="dashboard-root"
+     class="min-h-screen bg-slate-950 transition-colors duration-1000 px-4 py-2"
+     data-symbol="{{ symbol }}"
+     data-insight='{{ insight_json | safe }}'>
+  <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-4">
+    <div class="flex items-center gap-x-2">
+      <img src="/static/favicon.svg" alt="QuotePlot Agent" class="h-12">
+      <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+        QuotePlot Agent Dashboard
+      </h1>
+    </div>
+    <button
+      type="button"
+      id="export-report-btn"
+      class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-lg shadow-emerald-900/20"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+      Export Analysis
+    </button>
+  </div>
+
+  <div id="report-area" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <div class="lg:col-span-3 bg-slate-900 rounded-2xl p-4 shadow-2xl border border-slate-800">
+      {% include "partials/market_panel.html" %}
+    </div>
+
+    {% include "partials/chat_panel.html" %}
+  </div>
+
+  <div id="toast-root" class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/typewriter.js"></script>
+<script src="/static/js/market-chart.js"></script>
+<script src="/static/js/thought-stream.js"></script>
+<script src="/static/js/dashboard.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    window.LucyDashboard?.init({
+      symbol: {{ symbol | tojson }},
+      history: {{ history_json | safe }},
+      insight: {{ insight_json | safe }},
+      sessionId: {{ session_id | tojson }},
+    });
+  });
+</script>
+{% endblock %}

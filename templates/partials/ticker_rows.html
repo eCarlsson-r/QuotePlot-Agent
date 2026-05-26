@@ -1,0 +1,13 @@
+{% for sym, info in tickers.items() %}
+  {% if not q or q in sym %}
+  <tr
+    data-symbol="{{ sym }}"
+    class="ticker-row cursor-pointer hover:bg-slate-800/50 {% if sym == symbol %}bg-blue-600/30{% endif %}"
+  >
+    <td class="p-3 font-bold">{{ sym }}</td>
+    <td class="p-3 text-right">${{ "%.2f"|format(info.price) }}</td>
+  </tr>
+  {% endif %}
+{% else %}
+  <tr><td colspan="2" class="p-4 text-slate-500 text-center">No tickers available</td></tr>
+{% endfor %}

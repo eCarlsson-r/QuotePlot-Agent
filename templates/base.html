@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}QuotePlot Agent{% endblock %}</title>
+  <meta name="description" content="Real-time market analysis and intent classification powered by Lucy AI." />
+  <link rel="manifest" href="/static/site.webmanifest" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/radar.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas-pro@1.6.6/dist/html2canvas-pro.min.js"></script>
+  <link rel="stylesheet" href="/static/css/globals.css" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  {% block head %}{% endblock %}
+</head>
+<body class="antialiased bg-slate-950 text-slate-200" data-session-id="{{ session_id }}">
+  {% block body %}{% endblock %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

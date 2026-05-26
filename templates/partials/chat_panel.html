@@ -1,0 +1,92 @@
+<section id="chat-panel" class="chat-panel w-full bg-slate-900/30 border border-slate-800 rounded-2xl flex flex-col h-[min(85vh,720px)] overflow-hidden">
+  <div class="shrink-0 p-4 border-b border-slate-800 bg-slate-900/50 flex justify-between items-start gap-3">
+    <div>
+      <div class="flex items-center gap-2">
+        <h2 class="text-sm font-bold text-blue-400 uppercase tracking-widest">Lucy Terminal</h2>
+        <button type="button" id="enable-notifications" class="text-slate-400 hover:text-emerald-400" title="Enable alerts">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        </button>
+      </div>
+      <button type="button" id="toggle-logs" class="text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-1 text-[10px] uppercase font-mono mt-1">
+        <span id="toggle-logs-label">Hide Internal</span>
+      </button>
+    </div>
+    <div class="flex flex-col items-end gap-1.5 shrink-0">
+      <div class="flex items-center gap-2 text-[10px] uppercase tracking-wider">
+        <span class="text-emerald-400/90 font-semibold">Live</span>
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+      </div>
+      <span id="brightdata-status-badge" class="brightdata-badge bd-offline" title="Bright Data integration status">
+        Checking Bright Data…
+      </span>
+    </div>
+  </div>
+
+  <div class="shrink-0 bg-slate-800/50 p-3 mx-4 rounded-xl border border-slate-700">
+    <div class="flex justify-between text-[10px] uppercase text-slate-400 mb-2">
+      <span>Agent Reliability</span>
+    </div>
+    <div class="grid grid-cols-2 gap-2" id="agent-stats">
+      <div class="text-center">
+        <div class="text-xl font-bold text-white" id="stat-win-rate">{{ stats.win_rate }}%</div>
+        <div class="text-[9px] text-slate-500">ACCURACY</div>
+      </div>
+      <div class="text-center border-l border-slate-700">
+        <div class="text-xl font-bold text-white" id="stat-total">{{ stats.total_trades }}</div>
+        <div class="text-[9px] text-slate-500">SAMPLES</div>
+      </div>
+    </div>
+    <div class="text-center mt-2" id="streak-badge"></div>
+    <p id="streak-narrative" class="hidden text-center text-[9px] text-slate-500 mt-2 leading-snug px-1"></p>
+  </div>
+
+  <div id="chat-messages" class="chat-messages flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-4 font-mono text-xs">
+    <div class="text-blue-300">
+      <span class="font-bold">&gt; LUCY: </span>
+      <span class="typewriter-target" data-text="{{ initial_message }}"></span>
+    </div>
+  </div>
+
+  <div id="thought-stream-wrap" class="shrink-0 transition-all duration-300 ease-in-out border-t border-slate-800/50 h-36 opacity-100 overflow-hidden">
+    <div id="thought-stream" class="thought-stream p-4 rounded-lg overflow-y-auto h-full font-mono text-[11px] leading-tight">
+      <div class="flex items-center justify-between mb-3 border-b border-[#00ff41]/30 pb-2">
+        <span class="font-bold tracking-tighter">LUCY_CORE_LOGS</span>
+        <div class="flex items-center gap-2">
+          <span id="ws-status" class="text-[9px] opacity-70">CONNECTING</span>
+          <div id="ws-indicator" class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
+        </div>
+      </div>
+      <div id="thought-log-feed"></div>
+    </div>
+  </div>
+
+  <div class="shrink-0 p-4 border-t border-slate-800 bg-slate-900/50">
+    <form
+      id="chat-form"
+      hx-post="/partials/chat"
+      hx-target="#chat-messages"
+      hx-swap="beforeend"
+      hx-indicator="#chat-loading"
+      class="flex gap-2"
+    >
+      <input type="hidden" name="symbol" id="chat-symbol" value="{{ symbol }}" />
+      <input
+        name="content"
+        id="chat-input"
+        placeholder="Ask Lucy..."
+        required
+        class="flex-1 bg-slate-950 border border-slate-700 rounded p-2 text-xs focus:outline-none focus:border-blue-500 text-slate-200"
+        autocomplete="off"
+      />
+      <button
+        type="submit"
+        class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded text-xs font-bold"
+      >
+        Send
+      </button>
+    </form>
+    <div id="chat-loading" class="htmx-indicator text-[10px] text-blue-400 mt-2 uppercase tracking-widest">
+      Lucy is thinking...
+    </div>
+  </div>
+</section>

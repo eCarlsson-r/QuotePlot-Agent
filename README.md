@@ -1,70 +1,70 @@
 # 🤖 Lucy AI: Predictive Market Intelligence & Agentic Router
 
-Lucy AI is a modernized, full-stack machine learning ecosystem designed for real-time market analysis and intent classification. Originally a legacy Python 2 system, it has been re-engineered into a high-performance FastAPI service featuring a robust SVM Pipeline and a dynamic React/amCharts 5 frontend.
+Lucy AI is a full-stack machine learning ecosystem for real-time market analysis and intent classification. It runs as a FastAPI service with an **HTMX + Jinja2** dashboard, a Scikit-Learn SVC pipeline, and amCharts 5 visualizations.
 
 ## 🚀 Key Features
 
-- **Intent Intelligence**: A modernized Scikit-Learn SVC pipeline that classifies user queries with 86% accuracy and provides real-time confidence scores.
-- **Predictive Market Insights**: Automagically identifies bullish/bearish trends using historical stock data via a custom Lucy Brain logic bridge.
-- **Modernized Infrastructure**: Successfully migrated from legacy pickle formats to efficient joblib pipelines, ensuring Python 3.10+ compatibility.
-- **Dynamic Visualization**: High-fidelity financial charts powered by amCharts 5, featuring real-time data streaming and responsive "Insight Overlays."
-- **Scalable Routing**: An intelligent Agent Router that handles Web3-ready requests and balances model predictions with probability-based guardrails.
+- **Intent Intelligence**: Scikit-Learn SVC pipeline that classifies user queries with strong accuracy and confidence scores.
+- **Predictive Market Insights**: Identifies bullish/bearish trends using historical stock data via Lucy Brain logic.
+- **Modernized Infrastructure**: Joblib pipelines for Python 3.10+ compatibility.
+- **Dynamic Visualization**: Financial charts powered by amCharts 5 with real-time polling and insight overlays.
+- **Scalable Routing**: Agent router for Web3-ready requests with probability-based guardrails.
 
 ## 🛠️ Tech Stack
 
-### Backend (The Brain)
-
-- **FastAPI**: High-performance asynchronous API framework.
-- **SQLAlchemy**: ORM for robust data persistence and historical trend analysis.
-- **Scikit-Learn**: Feature engineering (TF-IDF equivalent) and Linear SVM classification.
-- **Joblib**: Optimized model serialization for fast cold-starts.
-
-### Frontend (The Interface)
-
-- **React + TypeScript**: Type-safe UI components for mission-critical reliability.
-- **amCharts 5**: Advanced data visualization for complex time-series data.
-- **Tailwind CSS**: Modern, responsive styling with glassmorphic UI elements.
-
-## 📈 Model Performance
-
-Lucy was evaluated using a 10-fold Stratified Cross-Validation to ensure reliability across imbalanced datasets.
-
-| Metric | Class 0 (Closed) | Class 1 (Open) | Combined |
-| Precision | 0.56 | 0.91 | 0.86 (Weighted) |
-| Recall | 0.52 | 0.92 | 0.86 (Weighted) |
-| F1-Score | 0.54 | 0.92 | 0.86 (Weighted) |
-
-The model utilizes class_weight='balanced' to ensure the minority "Closed Question" class is handled with maximum sensitivity.
+- **FastAPI** — API and server-rendered UI
+- **Jinja2 + HTMX** — Dashboard templates and partial updates
+- **SQLAlchemy** — Data persistence
+- **Scikit-Learn** — Feature engineering and Linear SVM classification
+- **amCharts 5** — Time-series charts (CDN)
+- **Tailwind CSS** — Utility styling (CDN)
 
 ## 📂 Project Structure
 
-├── lucy/               # Legacy Feature Engineering Bridge (Modernized)
-├── models/             # Serialized Joblib Pipelines & Vocabularies
-├── routers/            # FastAPI Agent Logic & Insight Endpoints
-├── data/               # Feature-engineered training sets
-├── buildmodel.py       # ML Pipeline training & Balancing logic
-└── evalmodel.py        # ROC Curve & Classification performance scripts
+```
+main.py              # FastAPI app entry point
+routers/             # API + page routes
+templates/           # Jinja2 HTML
+static/              # CSS, JS, assets
+brain.py             # Market analysis logic
+models/              # Serialized pipelines & vocabularies
+demos/               # Training / evaluation scripts
+```
 
 ## 🛠️ Installation & Setup
 
-1. Clone & Install Dependencies
+1. **Install dependencies**
+
 ```bash
 pip install -r requirements.txt
 ```
-2. Seed the Market Brain
+
+2. **Configure environment**
+
 ```bash
+cp env.example .env
+# Edit .env with GEMINI_API_KEY and optional Bright Data keys
+```
+
+3. **Migrate schema and seed tokens** (adds `token_map.chain` on existing MySQL DBs)
+
+```bash
+python migrate_db.py
 python seed_data.py
 ```
-3. Launch the Agent
+
+`seed_data.py` runs the migration automatically. Re-run seeding after deploy to refresh `address` and `chain` from CoinGecko.
+
+4. **Run the server**
+
 ```bash
 uvicorn main:app --reload
 ```
 
+Open [http://localhost:8000](http://localhost:8000) for the dashboard. JSON APIs are under `/api/market` and `/api/agent`.
+
+For serverless deployment, use `main.handler` (Mangum) as the ASGI entry point.
+
 ## 👨‍💻 Recruitment & Business Inquiries
 
-This project demonstrates expertise in **Legacy Code Modernization, MLOps (Model Deployment),** and **Full-Stack Financial Dashboarding**.
-
-**Available for:**
-- Machine Learning Engineering roles
-- Full-Stack AI Development
-- Custom Trading Bot / Dashboard consultations
+This project demonstrates **legacy modernization, MLOps deployment,** and **full-stack financial dashboarding**.
