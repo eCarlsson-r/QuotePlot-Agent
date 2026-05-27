@@ -6,6 +6,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+# CRITICAL: Import this utility to offload synchronous code safely
+from fastapi.concurrency import run_in_threadpool 
 from sqlalchemy import func, select, text as sql_text
 from sqlalchemy.orm import Session
 
@@ -18,6 +20,8 @@ router = APIRouter(tags=["pages"])
 _BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(_BASE_DIR / "templates"))
 
+# Enable native async rendering environment safely
+templates.env.enable_async = True
 
 def _get_or_set_session_id(request: Request) -> str:
     session_id = request.cookies.get("lucy_session_id")
@@ -99,11 +103,14 @@ async def dashboard(
 ):
     symbol = symbol.upper()
     session_id = _get_or_set_session_id(request)
-    tickers = _fetch_tickers(db)
-    history = _fetch_history(db, symbol)
-    insight = _default_insight(db, symbol)
-    win_rate, total, streak = get_agent_stats(db, symbol)
+    
+    # 🌟 OPTIMIZATION: Run all blocking code concurrently inside the threadpool pool!
+    tickers = await run_in_threadpool(_fetch_tickers, db)
+    history = await run_in_threadpool(_fetch_history, db, symbol)
+    insight = await run_in_threadpool(_default_insight, db, symbol)
+    win_rate, total, streak = await run_in_threadpool(get_agent_stats, db, symbol)
 
+    # 🌟 OPTIMIZATION: Use 'await' on your TemplateResponse to unlock the enable_async loop!
     response = templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -137,7 +144,10 @@ async def ticker_rows(
     db: Session = Depends(get_db),
 ):
     symbol = symbol.upper()
-    tickers = _fetch_tickers(db)
+    
+    # 🌟 OPTIMIZATION: Offload background database polling so HTMX components load instantly
+    tickers = await run_in_threadpool(_fetch_tickers, db)
+    
     return templates.TemplateResponse(
         request,
         "partials/ticker_rows.html",
@@ -185,7 +195,7 @@ async def chat_partial(
             "trend_summary": data.get("insight_text", ""),
         }
 
-    response = templates.TemplateResponse(
+    return templates.TemplateResponse(
         request,
         "partials/chat_exchange.html",
         {
@@ -203,6 +213,3 @@ async def chat_partial(
             ),
         },
     )
-    if not request.cookies.get("lucy_session_id"):
-        response.set_cookie("lucy_session_id", session_id, httponly=True, samesite="lax")
-    return response

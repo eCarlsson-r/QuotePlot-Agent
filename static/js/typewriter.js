@@ -5,10 +5,10 @@ window.LucyTypewriter = {
       return;
     }
     let index = 0;
-    el.textContent = "";
+    el.innerHTML = "";
     const interval = setInterval(() => {
       index += 1;
-      el.textContent = text.slice(0, index);
+      el.innerHTML = text.slice(0, index);
       if (index >= text.length) {
         clearInterval(interval);
         if (onComplete) onComplete();
@@ -27,10 +27,4 @@ window.LucyTypewriter = {
 
 document.addEventListener("DOMContentLoaded", () => {
   window.LucyTypewriter.scan();
-});
-
-document.body.addEventListener("htmx:afterSwap", (evt) => {
-  if (evt.detail.target?.id === "chat-messages") {
-    window.LucyTypewriter.scan(evt.detail.target);
-  }
 });

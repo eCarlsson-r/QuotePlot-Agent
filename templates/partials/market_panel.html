@@ -1,4 +1,4 @@
-<div class="flex flex-col md:flex-row h-[min(75vh,720px)] bg-slate-950 text-slate-200 overflow-hidden rounded-xl">
+<div class="flex flex-col md:flex-row h-[min(80vh,720px)] bg-slate-950 text-slate-200 overflow-hidden rounded-xl">
   <section class="w-full md:w-[40%] border-r border-slate-800 flex flex-col">
     <div class="p-4 bg-slate-900/50 shrink-0">
       <h2 class="text-xl font-bold text-blue-400">Web3 Analyst</h2>
@@ -6,13 +6,18 @@
       <input
         id="token-search"
         type="text"
-        placeholder="Filter tokens…"
+        name="q" 
+        placeholder="Search assets..."
         class="w-full p-2 mt-3 bg-black/50 border border-white/10 rounded text-sm focus:border-blue-500 focus:outline-none"
         autocomplete="off"
+        hx-get="/partials/ticker-rows" 
+        hx-trigger="keyup changed delay:200ms, every 5s" 
+        hx-target="#ticker-rows"
+        hx-vals='js:{symbol: new URLSearchParams(window.location.search).get("symbol") || "BTC"}'
       />
     </div>
     <div class="flex-1 min-h-0 overflow-auto" id="ticker-table-wrap">
-      <table class="w-full text-sm">
+      <table class="w-full text-sm" id="ticker-table">
         <tbody id="ticker-rows"
                hx-get="/partials/ticker-rows?symbol={{ symbol }}"
                hx-trigger="every 5s"
@@ -27,7 +32,7 @@
   </section>
   <section class="flex-1 relative min-h-[320px] chart-panel-wrap">
     <div id="chartdiv" class="w-full h-full min-h-[320px]"></div>
-    <div id="insight-badge" class="chart-insight-badge absolute top-3 left-3 text-xs font-mono text-slate-300 bg-slate-900/90 px-2 py-1 rounded border border-slate-700">
+    <div id="insight-badge" class="chart-insight-badge absolute bottom-7 left-3 text-xs font-mono text-slate-300 bg-slate-900/90 px-2 py-1 rounded border border-slate-700">
       {{ insight.prediction }}
     </div>
   </section>

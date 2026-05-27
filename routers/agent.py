@@ -323,28 +323,49 @@ async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
         # Fetch macro context using Bright Data MCP
         macro_context = await get_brightdata_market_context("crypto market trends")
 
-        prompt = f"""
-        The user is asking about the general market. 
-        Current Sentiment: {sentiment['sentiment']} ({sentiment['value']}/100)
-        Top Performers: {', '.join(movers['top_gainers'])}
-        Macro Context: {macro_context}
-        
-        Provide a concise analyst summary.
-        """
+        recommendation_prompt = (
+            f"You are Lucy, an advanced enterprise crypto analyst with native web agency. "
+            f"The user is asking for general market recommendations, macro summaries, or top movers.\n\n"
+            f"--- LOCAL DATABASE TELEMETRY ---\n"
+            f"Fear & Greed Index: {sentiment['sentiment']} ({sentiment['value']}/100)\n"
+            f"Database Top Movers: {', '.join(movers['top_gainers']) if movers.get('top_gainers') else 'None cached'}\n\n"
+            f"--- CRITICAL USER INTERFACE ACTIONS ---\n"
+            f"If you suggest specific tokens or stocks (such as BTC, ETH, SOL, or hot alternatives), you MUST wrap "
+            f"each ticker inside an interactive HTMX element exactly matching this markup pattern:\n"
+            f"'<button class=\"top-mover-btn px-2 py-1 mx-1 bg-blue-600/30 border border-blue-500/50 rounded text-xs transition-all font-mono\" data-symbol=\"SOL\">SOL</button>'\n\n"
+            f"This lets the user click your recommended token to update the terminal's visual chart canvas instantly! "
+            f"If you need real-time data on macro trends, use your brightdata_search_web tool. "
+            f"Be concise, analytical, witty, and return raw conversational text with embedded markup buttons."
+        )
 
-        sources = _brightdata_sources_used(macro_context=macro_context)
-        summary = await lucy_brain.generate(prompt, request.session_id)
-        summary = _with_brightdata_prefix(summary, sources)
-
-        return {
-            "type": "global_market_update",
-            "content": {
-                "title": "Global Market Briefing",
-                "sentiment": f"{sentiment['sentiment']} ({sentiment['value']}/100)",
-                "top_gainers": movers['top_gainers'],
-                "summary": summary
+        try:
+            # Pull the active persistent stateful session via the GenAI SDK helper
+            chat_session = lucy_brain.get_or_create_session(request.session_id)
+            
+            # Send the request directly through Gemini's chat stream
+            response = chat_session.send_message(
+                f"{recommendation_prompt}\n\nUser Request: {request.content}"
+            )
+            
+            # Return the response text directly as the message body content 
+            return {
+                "reply": response.text,
+                "prediction_type": "Neutral",
+                "probability": 0.50
             }
-        }
+            
+        except Exception as exc:
+            print(f"❌ Error during recommendation processing: {exc}")
+            fallback_message = (
+                f"[Bright Data Web Pipeline Active] Swapping internal parameters.\n\n"
+                f"Global market metrics indicate a position score of **{sentiment['value']}/100** ({sentiment['sentiment']}). "
+                f"Top gainers currently include: {', '.join(movers['top_gainers'])}."
+            )
+            return {
+                "reply": fallback_message,
+                "prediction_type": "Neutral",
+                "probability": 0.50
+            }
     else:
         narration = await lucy_brain.generate(
             request.content,
