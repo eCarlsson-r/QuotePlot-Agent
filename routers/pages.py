@@ -1,4 +1,6 @@
 import json
+import time
+import logging
 import uuid
 from pathlib import Path
 from typing import Any
@@ -15,6 +17,9 @@ from brain import analyze_divergence, get_agent_stats
 from database import get_db
 from models import Stock, TokenMap
 from routers.agent import ChatRequest, chat_agent_reply
+from fastapi.concurrency import run_in_threadpool
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(tags=["pages"])
 _BASE_DIR = Path(__file__).resolve().parent.parent
@@ -104,13 +109,29 @@ async def dashboard(
     symbol = symbol.upper()
     session_id = _get_or_set_session_id(request)
     
-    # 🌟 OPTIMIZATION: Run all blocking code concurrently inside the threadpool pool!
-    tickers = await run_in_threadpool(_fetch_tickers, db)
-    history = await run_in_threadpool(_fetch_history, db, symbol)
-    insight = await run_in_threadpool(_default_insight, db, symbol)
-    win_rate, total, streak = await run_in_threadpool(get_agent_stats, db, symbol)
+    # --- TRACK DOWN THE 2-MINUTE FREEZE ---
+    try:
+        start = time.time()
+        tickers = await run_in_threadpool(_fetch_tickers, db)
+        logger.info(f"⏱️ _fetch_tickers took: {time.time() - start:.4f}s")
+        
+        start = time.time()
+        history = await run_in_threadpool(_fetch_history, db, symbol)
+        logger.info(f"⏱️ _fetch_history took: {time.time() - start:.4f}s")
+        
+        start = time.time()
+        insight = await run_in_threadpool(_default_insight, db, symbol)
+        logger.info(f"⏱️ _default_insight took: {time.time() - start:.4f}s")
+        
+        start = time.time()
+        win_rate, total, streak = await run_in_threadpool(get_agent_stats, db, symbol)
+        logger.info(f"⏱️ get_agent_stats took: {time.time() - start:.4f}s")
+        
+    except Exception as e:
+        logger.error(f"❌ Data fetching encountered an error: {e}")
+        tickers, history, insight = [], [], {"prediction": "Unavailable"}
+        win_rate, total, streak = 0, 0, 0
 
-    # 🌟 OPTIMIZATION: Use 'await' on your TemplateResponse to unlock the enable_async loop!
     response = templates.TemplateResponse(
         request,
         "dashboard.html",
