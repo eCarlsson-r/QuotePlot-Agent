@@ -92,7 +92,7 @@ sentry-sdk==2.50.0
 shellingham==1.5.4
 six==1.17.0
 sniffio==1.3.1
-SQLAlchemy==2.0.46
+sqlalchemy==2.0.46
 # FIX: sqlalchemy-orm 1.2.x is a legacy stub package incompatible with SQLAlchemy 2.x.
 # SQLAlchemy 2.x ships ORM natively — no separate package needed. Line removed.
 starlette==0.50.0
