@@ -14,8 +14,9 @@ watchfiles==0.24.0
 # --- PERFORMANCE ENHANCED TEMPLATE ENGINE (HTMX) ---
 Jinja2==3.1.4
 MarkupSafe==3.0.2
-jinja2-async-environment==0.18.7
-starlette-async-jinja==1.13.5
+# 🌟 DOWNGRADED FOR 3.12 COMPATIBILITY: Versions with Python >=3.11 requirements
+jinja2-async-environment==0.8.1
+starlette-async-jinja==1.2.0
 
 # --- SYSTEM & UTILITIES ---
 click==8.1.7
