@@ -20,6 +20,12 @@ from routers.agent import ChatRequest, chat_agent_reply
 from fastapi.concurrency import run_in_threadpool
 
 logger = logging.getLogger("uvicorn.error")
+# Simple global cache store
+_TICKERS_CACHE = {
+    "data": None,
+    "expiry": 0
+}
+CACHE_DURATION_SECONDS = 15  # Only fetch fresh data once every 15 seconds
 
 router = APIRouter(tags=["pages"])
 _BASE_DIR = Path(__file__).resolve().parent.parent
@@ -36,6 +42,14 @@ def _get_or_set_session_id(request: Request) -> str:
 
 
 def _fetch_tickers(db: Session) -> dict[str, Any]:
+    # 1. Fetch only active symbols first (drastically reduces the search space)
+    active_symbols_query = select(TokenMap.symbol).where(TokenMap.is_active == True)
+    active_symbols = db.execute(active_symbols_query).scalars().all()
+    
+    if not active_symbols:
+        return {}
+
+    # 2. Optimized window query targeting only the active subset
     ranked_subquery = (
         select(
             Stock.symbol,
@@ -44,9 +58,10 @@ def _fetch_tickers(db: Session) -> dict[str, Any]:
             .over(partition_by=Stock.symbol, order_by=Stock.datetime.desc())
             .label("rn"),
         )
-        .where(Stock.symbol.in_(select(TokenMap.symbol).where(TokenMap.is_active == True)))
+        .where(Stock.symbol.in_(active_symbols)) # 👈 Crucial: Explicit list bounds the scan
         .subquery()
     )
+    
     query = select(ranked_subquery).where(ranked_subquery.c.rn <= 2)
     rows = db.execute(query).mappings().all()
 
@@ -65,8 +80,8 @@ def _fetch_tickers(db: Session) -> dict[str, Any]:
         if p["prev"] and p["prev"] != 0:
             change = ((p["current"] - p["prev"]) / p["prev"]) * 100
         result[sym] = {"price": p["current"], "change": round(change, 2)}
+        
     return result
-
 
 def _fetch_history(db: Session, symbol: str) -> list[dict[str, Any]]:
     query = sql_text(

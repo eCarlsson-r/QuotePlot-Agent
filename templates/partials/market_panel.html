@@ -21,6 +21,7 @@
         <tbody id="ticker-rows"
                hx-get="/partials/ticker-rows?symbol={{ symbol }}"
                hx-trigger="every 5s"
+               hx-sync="this:replace"
                hx-swap="innerHTML">
           {% include "partials/ticker_rows.html" %}
         </tbody>
