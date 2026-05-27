@@ -54,11 +54,11 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         continuous_oracle_sync, 
         'interval', 
-        seconds=30, 
+        minutes=2,         # 👈 FIX: Changed from 30s to 2m to protect the thread pool
         id='oracle_sync', 
         args=[manager], 
-        max_instances=3, # 🛡️ Prevents overlapping runs
-        coalesce=True    # 🛡️ Skips missed runs if the server was down
+        max_instances=1,   # 👈 FIX: Changed from 3 to 1 to prevent overlapping resource exhaustion
+        coalesce=True      # 🛡️ Skips missed runs if the server was down
     )
     scheduler.add_job(
         evaluate_predictions_task, 
@@ -66,8 +66,8 @@ async def lifespan(app: FastAPI):
         minutes=5, 
         id='evaluate_predictions', 
         args=[manager],
-        max_instances=3, # 🛡️ Prevents overlapping runs
-        coalesce=True    # 🛡️ Skips missed runs if the server was down
+        max_instances=1,   # 👈 FIX: Dropped to 1 to prevent compounding DB operations
+        coalesce=True      # 🛡️ Skips missed runs if the server was down
     )
     scheduler.add_job(
         update_social_sentiment_from_datasets, 
