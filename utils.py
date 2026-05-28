@@ -378,6 +378,14 @@ def extract_symbol(db, text: str, session_id: str = "default_user") -> str | Non
 # [ACCESS] Pyth price fetch — via BD-proxied client
 # ---------------------------------------------------------------------------
 
+_pyth_client: httpx.AsyncClient | None = None  # Direct, no proxy
+
+async def get_pyth_client() -> httpx.AsyncClient:
+    global _pyth_client
+    if _pyth_client is None or _pyth_client.is_closed:
+        _pyth_client = httpx.AsyncClient(timeout=10.0)  # Direct connection
+    return _pyth_client
+
 async def fetch_pyth_price(price_id: str, timeout: float = 10.0) -> float | str | None:
     """
     ACCESS: Fetches the latest Pyth oracle price through the Bright Data proxy.
@@ -388,7 +396,7 @@ async def fetch_pyth_price(price_id: str, timeout: float = 10.0) -> float | str 
     params = {"ids[]": [price_id]}
 
     try:
-        client   = await get_client()
+        client   = await get_pyth_client()
         response = await client.get(url, params=params, timeout=timeout)
         if response.status_code != 200:
             print(f"❌ Pyth Error {response.status_code}: {response.text[:120]}")

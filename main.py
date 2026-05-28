@@ -17,7 +17,7 @@ from tasks import (
     continuous_alternative_data_sync
 )
 from dotenv import load_dotenv
-from mangum import Mangum
+
 
 load_dotenv()
 # --- 1. WebSocket Manager for the Thought Stream ---
@@ -146,8 +146,12 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)), reload=True)
-
-handler = Mangum(app)
+import uvicorn
+uvicorn.run(
+    "main:app",
+    host="0.0.0.0",
+    port=int(os.getenv("PORT", 80)),
+    workers=1,       # Single worker — APScheduler must not run in multiple processes
+    loop="uvloop",   # Faster event loop (uvloop already in requirements.txt)
+    reload=False,    # Never reload in production — Coolify restarts the container on deploy
+)

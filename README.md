@@ -63,8 +63,6 @@ uvicorn main:app --reload
 
 Open [http://localhost:8000](http://localhost:8000) for the dashboard. JSON APIs are under `/api/market` and `/api/agent`.
 
-For serverless deployment, use `main.handler` (Mangum) as the ASGI entry point.
-
 ## 👨‍💻 Recruitment & Business Inquiries
 
 This project demonstrates **legacy modernization, MLOps deployment,** and **full-stack financial dashboarding**.

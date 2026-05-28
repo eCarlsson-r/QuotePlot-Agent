@@ -8,7 +8,7 @@ load_dotenv()
 # Set up test credentials
 API_KEY = os.getenv("BRIGHTDATA_API_KEY")
 CUSTOMER_ID = os.getenv("BRIGHTDATA_CUSTOMER_ID")
-TOKEN = os.getenv("BRIGHTDATA_TOKEN")
+TOKEN = os.getenv("BRIGHTDATA_API_KEY")
 
 SERP_ZONE = os.getenv("BRIGHTDATA_SERP_ZONE", "serp_api")
 UNLOCKER_ZONE = os.getenv("BRIGHTDATA_UNLOCKER_ZONE", "web_unlocker")
@@ -18,7 +18,7 @@ PROXY_ZONE = os.getenv("BRIGHTDATA_PROXY_ZONE", "residential")
 async def test_mcp_server():
     print("\n--- 1. Testing Hosted MCP Server Connection ---")
     if not TOKEN:
-        print("⚠️ Skip: BRIGHTDATA_TOKEN not set in environment.")
+        print("⚠️ Skip: BRIGHTDATA_API_KEY not set in environment.")
         return False
         
     try:

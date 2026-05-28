@@ -214,7 +214,7 @@ async def brightdata_status():
     if _bd_status_cache["result"] and now < _bd_status_cache["expires_at"]:
         return _bd_status_cache["result"]
 
-    token   = os.getenv("BRIGHTDATA_TOKEN")
+    token   = os.getenv("BRIGHTDATA_API_KEY")
     api_key = os.getenv("BRIGHTDATA_API_KEY")
     serp    = os.getenv("BRIGHTDATA_SERP_ZONE")
 

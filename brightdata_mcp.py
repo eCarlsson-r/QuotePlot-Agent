@@ -1,12 +1,20 @@
 """Bright Data MCP + SERP helpers for macro/social context."""
 
-import json
 import os
+import time
 
 from dotenv import load_dotenv
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 load_dotenv()
+
+# ---------------------------------------------------------------------------
+# MCP client cache — one connection, reused across calls (30 s TTL)
+# Opening a fresh MultiServerMCPClient + get_tools() on every call added
+# 1-3 s of SSE handshake latency to every agent response.
+# ---------------------------------------------------------------------------
+_mcp_tools_cache: dict = {"tools": None, "expires_at": 0.0}
+_MCP_TTL = 30.0
 
 
 def _format_tool_result(result) -> str:
@@ -23,23 +31,36 @@ def _format_tool_result(result) -> str:
     return str(result)
 
 
-async def _invoke_mcp_tool(tool_name: str, arguments: dict) -> str:
-    bd_token = os.getenv("BRIGHTDATA_TOKEN")
+async def _get_mcp_tools() -> dict:
+    """Return cached MCP tools dict, refreshing if the TTL has expired."""
+    now = time.monotonic()
+    if _mcp_tools_cache["tools"] and now < _mcp_tools_cache["expires_at"]:
+        return _mcp_tools_cache["tools"]
+
+    # FIX: Accept either env var name — BRIGHTDATA_TOKEN and BRIGHTDATA_API_KEY
+    # are the same credential; Coolify only has BRIGHTDATA_API_KEY set.
+    bd_token = os.getenv("BRIGHTDATA_TOKEN") or os.getenv("BRIGHTDATA_API_KEY")
     if not bd_token:
-        raise ValueError("Missing BRIGHTDATA_TOKEN")
+        raise ValueError("Missing BRIGHTDATA_TOKEN / BRIGHTDATA_API_KEY")
 
     client = MultiServerMCPClient({
         "bright_data": {
-            "url": f"https://mcp.brightdata.com/mcp?token={bd_token}",
+            "url":       f"https://mcp.brightdata.com/mcp?token={bd_token}",
             "transport": "streamable_http",
         }
     })
     tools = {t.name: t for t in await client.get_tools()}
-    tool = tools.get(tool_name)
+    _mcp_tools_cache["tools"]      = tools
+    _mcp_tools_cache["expires_at"] = now + _MCP_TTL
+    return tools
+
+
+async def _invoke_mcp_tool(tool_name: str, arguments: dict) -> str:
+    tools = await _get_mcp_tools()
+    tool  = tools.get(tool_name)
     if not tool:
         available = ", ".join(sorted(tools.keys()))
         raise ValueError(f"MCP tool '{tool_name}' not found (available: {available})")
-
     result = await tool.ainvoke(arguments)
     return _format_tool_result(result)
 
@@ -59,7 +80,7 @@ async def _serp_macro_fallback(query_topic: str) -> str:
 
     lines = []
     for item in parsed.get("organic_results", [])[:5]:
-        title = item.get("title", "")
+        title   = item.get("title", "")
         snippet = item.get("snippet", "")
         if title:
             lines.append(f"- {title}: {snippet}".strip())
