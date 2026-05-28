@@ -3,6 +3,37 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Playwright browser install — runs once on container start.
+# Coolify has no Dockerfile post-install hook that reliably fires after pip,
+# so we install the Chromium binary here if it isn't already present.
+# subprocess.run is safe at module level because this completes before
+# uvicorn starts accepting requests.
+# ---------------------------------------------------------------------------
+def _ensure_playwright_browsers():
+    """
+    Installs Playwright Chromium if the binary is missing.
+    Called in a background thread from lifespan so uvicorn starts
+    accepting requests immediately — Coolify health check won't
+    time out waiting for the ~30s install to complete.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            p.chromium.launch()
+        print("✅ [LUCY] Playwright Chromium already installed.")
+    except Exception:
+        print("🔧 [LUCY] Installing Playwright Chromium browsers (background)...")
+        result = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            print("✅ [LUCY] Playwright Chromium installed successfully.")
+        else:
+            print(f"⚠️  [LUCY] Playwright install failed:\n{result.stderr}")
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -19,29 +50,6 @@ from tasks import (
 )
 from dotenv import load_dotenv
 
-# ---------------------------------------------------------------------------
-# Playwright browser install — runs once on container start.
-# Coolify has no Dockerfile post-install hook that reliably fires after pip,
-# so we install the Chromium binary here if it isn't already present.
-# subprocess.run is safe at module level because this completes before
-# uvicorn starts accepting requests.
-# ---------------------------------------------------------------------------
-def _ensure_playwright_browsers():
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            p.chromium.launch()         # Fast check — raises if binary missing
-        print("✅ [LUCY] Playwright Chromium already installed.")
-    except Exception:
-        print("🔧 [LUCY] Installing Playwright Chromium browsers...")
-        result = subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
-            capture_output=True, text=True
-        )
-        if result.returncode == 0:
-            print("✅ [LUCY] Playwright Chromium installed successfully.")
-        else:
-            print(f"⚠️  [LUCY] Playwright install failed:\n{result.stderr}")
 
 load_dotenv()
 # --- 1. WebSocket Manager for the Thought Stream ---
@@ -71,6 +79,12 @@ manager = ConnectionManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     scheduler = AsyncIOScheduler()
+
+    # Start Playwright install in background so uvicorn is ready immediately.
+    # Coolify's health check hits the port right after startup — blocking here
+    # for ~30s causes a Bad Gateway before the install finishes.
+    import threading
+    threading.Thread(target=_ensure_playwright_browsers, daemon=True).start()
 
     print("🚀 [LUCY] Starting Autonomous Brain Loops...")
 
@@ -170,13 +184,13 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-_ensure_playwright_browsers()
-import uvicorn
-uvicorn.run(
-    "main:app",
-    host="0.0.0.0",
-    port=int(os.getenv("PORT", 80)),
-    workers=1,       # Single worker — APScheduler must not run in multiple processes
-    loop="uvloop",   # Faster event loop (uvloop already in requirements.txt)
-    reload=False,    # Never reload in production — Coolify restarts the container on deploy
-)
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        app,                             # Pass object directly — string "main:app" causes
+        host="0.0.0.0",                  # uvicorn to re-import main.py, which re-executes
+        port=int(os.getenv("PORT", 80)), # this block, causing infinite recursion + crash.
+        workers=1,
+        loop="uvloop",
+        reload=False,
+    )
