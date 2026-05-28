@@ -32,7 +32,7 @@ FALLBACK_SYMBOLS = {
 }
 
 # Merge with fallback if SERP discovers fewer than this many symbols
-MIN_SEED_COUNT = 20
+MIN_SEED_COUNT = 10
 
 # Common uppercase English words that look like tickers but aren't
 _STOPWORDS = {
@@ -58,9 +58,7 @@ async def discover_trending_symbols() -> set[str]:
 
     print("🔍 [Bright Data SERP] Discovering trending tokens for seeding...")
 
-    # get_market_trends_serp uses sync requests — run in thread
-    serp_data = await asyncio.to_thread(
-        get_market_trends_serp,
+    serp_data = await get_market_trends_serp(
         "top trending cryptocurrency tokens 2026 by market cap"
     )
     parsed = parse_serp_results(serp_data)
