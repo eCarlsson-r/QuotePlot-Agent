@@ -119,12 +119,16 @@ async def get_client() -> httpx.AsyncClient:
     global http_client
     if http_client is None or http_client.is_closed:
         api_key = os.getenv("BRIGHTDATA_API_KEY")
-        browser_zone = os.getenv("BRIGHTDATA_BROWSER_ZONE") or "residential"
+        proxy_url = os.getenv("BRIGHTDATA_PROXY_URL")
+        proxy_zone = os.getenv("BRIGHTDATA_PROXY_ZONE") or "residential"
         customer_id = os.getenv("BRIGHTDATA_CUSTOMER_ID")
 
-        if api_key and customer_id:
+        if proxy_url:
+            http_client = httpx.AsyncClient(proxy=proxy_url, timeout=15.0)
+            print("🌐 [LUCY] HTTP client → Bright Data proxy URL (Web Unlocker).")
+        elif api_key and customer_id:
             bd_proxy = (
-                f"http://brd-customer-{customer_id}-zone-{browser_zone}"
+                f"http://brd-customer-{customer_id}-zone-{proxy_zone}"
                 f":{api_key}@brd.superproxy.com:22225"
             )
             http_client = httpx.AsyncClient(
@@ -132,7 +136,7 @@ async def get_client() -> httpx.AsyncClient:
                 timeout=15.0,
                 verify=False,  # BD proxy terminates SSL; inner cert checked server-side
             )
-            print(f"🌐 [LUCY] HTTP client → Bright Data zone '{browser_zone}'.")
+            print(f"🌐 [LUCY] HTTP client → Bright Data zone '{proxy_zone}'.")
         else:
             http_client = httpx.AsyncClient(timeout=15.0)
             print("⚠️  [LUCY] HTTP client → direct (no BD credentials). Set BRIGHTDATA_API_KEY + BRIGHTDATA_CUSTOMER_ID.")
@@ -334,13 +338,42 @@ async def get_tokens() -> list | None:
 
     pyth_feeds = pyth_res.json()
     cg_map     = cg_res.json()
-    cg_lookup  = {item["symbol"].upper(): item for item in cg_map}
 
+    # FIX 1: CoinGecko has thousands of coins sharing the same ticker symbol.
+    # A plain dict keyed by symbol picks a random coin (last write wins) —
+    # that's why BTC was showing chain=osmosis and ETH chain=solana.
+    # Build a priority lookup: prefer coins whose id IS the lowercase symbol
+    # (e.g. id="bitcoin" for BTC, id="ethereum" for ETH) over altcoins that
+    # happen to share the ticker. Falls back to first match if no canonical id.
+    cg_by_symbol: dict[str, dict] = {}
+    for item in cg_map:
+        sym = item["symbol"].upper()
+        if sym not in cg_by_symbol:
+            cg_by_symbol[sym] = item          # first seen
+        else:
+            # Prefer the entry whose id is the canonical lowercase symbol
+            # e.g. "bitcoin" beats "wrapped-bitcoin" for BTC
+            current_id = cg_by_symbol[sym]["id"]
+            new_id     = item["id"]
+            if new_id == sym.lower() or (
+                len(new_id) < len(current_id) and sym.lower() in new_id
+            ):
+                cg_by_symbol[sym] = item
+
+    # FIX 2: Pyth has multiple feeds per symbol (spot, TWAP, wrapped variants).
+    # De-duplicate by symbol, keeping only the first feed seen (which Pyth
+    # returns as the primary/most liquid feed for that asset).
+    seen_symbols: set[str] = set()
     token_list = []
     for feed in pyth_feeds:
         attr   = feed.get("attributes", {})
         symbol = attr.get("base", "").upper()
-        cg_data = cg_lookup.get(symbol)
+
+        if not symbol or symbol in seen_symbols:
+            continue                          # skip empty or duplicate symbols
+        seen_symbols.add(symbol)
+
+        cg_data = cg_by_symbol.get(symbol)
 
         chain, address = None, None
         if cg_data and cg_data.get("platforms"):
