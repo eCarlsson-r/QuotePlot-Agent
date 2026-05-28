@@ -214,7 +214,7 @@ async def brightdata_status():
     if _bd_status_cache["result"] and now < _bd_status_cache["expires_at"]:
         return _bd_status_cache["result"]
 
-    token   = os.getenv("BRIGHTDATA_API_KEY")
+    token   = os.getenv("BRIGHTDATA_TOKEN")
     api_key = os.getenv("BRIGHTDATA_API_KEY")
     serp    = os.getenv("BRIGHTDATA_SERP_ZONE")
 
@@ -335,22 +335,27 @@ async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
                 "probability":     0.5,
             }
 
-        # [DISCOVER] Bright Data SERP API — live token news
-        news_data   = await get_token_news_serp(symbol)
-        parsed_news = parse_serp_results(news_data)
+        # [DISCOVER] All three Bright Data calls + get_market_prediction run in
+        # parallel via gather — previously sequential, adding 3-9s of dead wait
+        # time before Gemini even started. gather() fires all four concurrently
+        # and returns when the slowest one finishes.
+        (
+            news_data,
+            social_sentiment,
+            macro_context,
+            (sent, conf, insight),
+        ) = await asyncio.gather(
+            get_token_news_serp(symbol),                              # SERP news
+            get_brightdata_social_sentiment(symbol),                  # MCP social
+            get_brightdata_market_context(f"{symbol} macro outlook"), # MCP macro
+            asyncio.to_thread(get_market_prediction, db, prices, symbol, behavior_context),
+        )
+
+        parsed_news  = parse_serp_results(news_data)
         news_context = ""
         if "error" not in parsed_news and parsed_news.get("organic_results"):
             top_news     = parsed_news["organic_results"][:3]
             news_context = " Recent news: " + "; ".join(n["title"] for n in top_news)
-
-        # [DISCOVER] Bright Data MCP — social sentiment
-        social_sentiment = await get_brightdata_social_sentiment(symbol)
-
-        # [DISCOVER] Bright Data MCP — macro context (was fetched but never
-        # passed to _brightdata_sources_used in the old code)
-        macro_context = await get_brightdata_market_context(f"{symbol} macro outlook")
-
-        sent, conf, insight = get_market_prediction(db, prices, symbol, behavior_context)
 
         if news_context:
             insight += news_context
