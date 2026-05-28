@@ -1,93 +1,132 @@
-from utils import get_tokens
-from database import SessionLocal, engine
-from sqlalchemy import func
-from models import Base, InvestorBehavior, TokenMap
+import asyncio
 import random
 from datetime import datetime
-import asyncio
+from database import SessionLocal
+from models import InvestorBehavior, TokenMap
+from utils import get_client, get_tokens
 
-from migrate_db import migrate
+# ---------------------------------------------------------------------------
+# Curated token allowlist — only these symbols are seeded from the full
+# Pyth/CoinGecko feed. Add or remove symbols here as needed.
+# ---------------------------------------------------------------------------
+SEED_SYMBOLS = {
+    "BTC", "ETH", "SOL", "BNB", "XRP", "DOGE", "ADA", "AVAX",
+    "LINK", "DOT", "MATIC", "UNI", "ATOM", "LTC", "BCH", "APT",
+    "ARB", "OP", "INJ", "SUI",
+}
 
+
+# ---------------------------------------------------------------------------
+# Token seeder
+# ---------------------------------------------------------------------------
 
 async def seed_web3_tokens():
-    db = SessionLocal()
+    print("🌐 Fetching token list from Pyth + CoinGecko via Bright Data proxy...")
     raw_token_data = await get_tokens()
 
     if not raw_token_data:
-        print("⚠️ Warning: Token list is empty. Check your API/Utility.")
-        db.close()
+        print("⚠️  Warning: Token list is empty. Check BRIGHTDATA_API_KEY / network.")
         return
 
+    # Filter to curated allowlist
+    filtered = [
+        t for t in raw_token_data
+        if t.get("symbol", "").upper() in SEED_SYMBOLS
+    ]
+    print(f"   Found {len(raw_token_data)} total feeds → seeding {len(filtered)} curated tokens.")
+
     added = updated = skipped = 0
-    for data in raw_token_data:
-        sym = data.get("symbol")
-        if not sym:
-            continue
 
-        cg_id = data.get("coingecko_id")
-        existing = db.query(TokenMap).filter(TokenMap.symbol == sym).first()
+    with SessionLocal() as db:
+        for data in filtered:
+            sym   = data["symbol"].upper()
+            cg_id = data.get("coingecko_id")
 
-        if not existing:
-            db.add(
-                TokenMap(
-                    symbol=sym,
-                    coingecko_id=cg_id,
-                    pyth_id=data.get("pyth_id"),
-                    address=data.get("address"),
-                    chain=data.get("chain"),
-                    is_active=True,
-                )
-            )
-            added += 1
-            print(f"✅ Added {sym} (chain={data.get('chain')})")
-        else:
-            changed = False
-            if cg_id and existing.coingecko_id != cg_id:
-                existing.coingecko_id = cg_id
-                changed = True
-            if data.get("pyth_id") and existing.pyth_id != data.get("pyth_id"):
-                existing.pyth_id = data.get("pyth_id")
-                changed = True
-            if data.get("address") and existing.address != data.get("address"):
-                existing.address = data.get("address")
-                changed = True
-            if data.get("chain") and existing.chain != data.get("chain"):
-                existing.chain = data.get("chain")
-                changed = True
-            if changed:
-                updated += 1
-                print(f"🔄 Updated {sym} (chain={existing.chain})")
+            existing = db.query(TokenMap).filter(TokenMap.symbol == sym).first()
+
+            if not existing:
+                db.add(TokenMap(
+                    symbol      = sym,
+                    coingecko_id= cg_id,
+                    pyth_id     = data.get("pyth_id"),
+                    address     = data.get("address"),
+                    chain       = data.get("chain"),
+                    is_active   = True,
+                ))
+                added += 1
+                print(f"  ✅ Added   {sym:<8} chain={data.get('chain') or 'n/a'}")
             else:
-                skipped += 1
+                changed = False
+                for field in ("coingecko_id", "pyth_id", "address", "chain"):
+                    new_val = data.get(field) if field != "coingecko_id" else cg_id
+                    if new_val and getattr(existing, field) != new_val:
+                        setattr(existing, field, new_val)
+                        changed = True
+                if changed:
+                    updated += 1
+                    print(f"  🔄 Updated {sym:<8} chain={existing.chain or 'n/a'}")
+                else:
+                    skipped += 1
 
-    db.commit()
-    db.close()
-    print(f"🏁 Token seeding done: {added} added, {updated} updated, {skipped} unchanged.")
+        db.commit()
 
+    print(f"\n  🏁 Token seeding: {added} added, {updated} updated, {skipped} unchanged.")
+
+
+# ---------------------------------------------------------------------------
+# Whale data seeder
+# ---------------------------------------------------------------------------
 
 def seed_whale_data():
-    db = SessionLocal()
-    active_symbols = [t.symbol for t in db.query(TokenMap).filter(TokenMap.is_active == True).all()]
+    """
+    Seeds 5 InvestorBehavior rows per active token so analyze_divergence()
+    and mine_investor_behavior() have data to work with immediately after deploy.
 
-    for symbol in active_symbols:
-        for _ in range(5):
-            move = InvestorBehavior(
-                symbol=symbol,
-                flow_type="Cold Storage",
-                volume=random.uniform(100, 500),
-                timestamp=func.now(),
-            )
-            db.add(move)
-    db.commit()
-    db.close()
-    print("🐋 Whale flows seeded. Lucy can now detect 'Strong Accumulation'.")
+    Uses a fresh SessionLocal() so it sees the tokens committed by
+    seed_web3_tokens() rather than a stale transaction snapshot.
+    """
+    with SessionLocal() as db:
+        active_symbols = [
+            t.symbol for t in
+            db.query(TokenMap).filter(TokenMap.is_active == True).all()
+        ]
 
+        if not active_symbols:
+            print("⚠️  No active tokens found — skipping whale seed.")
+            return
+
+        flow_types = ["Cold Storage", "Exchange Inflow", "Whale Swap"]
+        now = datetime.now()
+
+        for symbol in active_symbols:
+            for _ in range(5):
+                db.add(InvestorBehavior(
+                    symbol    = symbol,
+                    flow_type = random.choice(flow_types),
+                    volume    = random.uniform(100, 500),
+                    timestamp = now,
+                ))
+
+        db.commit()
+
+    print(f"  🐋 Whale flows seeded for {len(active_symbols)} tokens.")
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 async def run_all_seeds():
-    migrate()
-    await seed_web3_tokens()
-    seed_whale_data()
-    print("🚀 All systems seeded and ready for Lucy!")
+    try:
+        await seed_web3_tokens()
+        seed_whale_data()
+        print("\n🚀 All systems seeded and ready for Lucy!")
+    finally:
+        # Close the shared BD-proxied httpx client cleanly so the script exits
+        # without ResourceWarning: "Unclosed client session"
+        client = await get_client()
+        if not client.is_closed:
+            await client.aclose()
 
 
 if __name__ == "__main__":
