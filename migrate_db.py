@@ -164,11 +164,6 @@ def cmd_fresh():
     print("  migrate --fresh   ⚠️  ALL DATA WILL BE DESTROYED")
     _separator("━")
 
-    confirm = input("\n  Type 'yes' to confirm: ").strip().lower()
-    if confirm != "yes":
-        print("  Aborted.")
-        return
-
     print("\n  Dropping all tables...")
     with engine.connect() as conn:
         _drop_all(conn)
@@ -191,11 +186,6 @@ def cmd_rollback():
     _separator("━")
     print("  migrate --rollback   ⚠️  ALL DATA WILL BE DESTROYED")
     _separator("━")
-
-    confirm = input("\n  Type 'yes' to confirm: ").strip().lower()
-    if confirm != "yes":
-        print("  Aborted.")
-        return
 
     print("\n  Dropping all tables...")
     with engine.connect() as conn:
