@@ -1,6 +1,6 @@
 {
   "name": "QuotePlot Agent",
-  "short_name": "QoutePlot",
+  "short_name": "QuotePlot",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
