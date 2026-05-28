@@ -86,6 +86,23 @@ def dexscreener_pair_url(chain: str | None, address: str | None) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# [ACCESS] Direct HTTP client — Pyth oracle (no proxy)
+# Pyth (hermes.pyth.network) blocks residential proxy IPs. All Pyth calls
+# use this direct client. get_tokens() also uses a short-lived direct client
+# for the same reason.
+# ---------------------------------------------------------------------------
+
+_pyth_client: httpx.AsyncClient | None = None
+
+async def get_pyth_client() -> httpx.AsyncClient:
+    global _pyth_client
+    if _pyth_client is None or _pyth_client.is_closed:
+        _pyth_client = httpx.AsyncClient(timeout=15.0)
+        print("🔗 [LUCY] Pyth client → direct (no proxy).")
+    return _pyth_client
+
+
+# ---------------------------------------------------------------------------
 # [ACCESS] Global Bright Data-proxied HTTP client
 # ---------------------------------------------------------------------------
 
@@ -102,16 +119,12 @@ async def get_client() -> httpx.AsyncClient:
     global http_client
     if http_client is None or http_client.is_closed:
         api_key = os.getenv("BRIGHTDATA_API_KEY")
-        proxy_url = os.getenv("BRIGHTDATA_PROXY_URL")
-        proxy_zone = os.getenv("BRIGHTDATA_PROXY_ZONE") or "residential"
+        browser_zone = os.getenv("BRIGHTDATA_BROWSER_ZONE") or "residential"
         customer_id = os.getenv("BRIGHTDATA_CUSTOMER_ID")
 
-        if proxy_url:
-            http_client = httpx.AsyncClient(proxy=proxy_url, timeout=15.0)
-            print("🌐 [LUCY] HTTP client → Bright Data proxy URL (Web Unlocker).")
-        elif api_key and customer_id:
+        if api_key and customer_id:
             bd_proxy = (
-                f"http://brd-customer-{customer_id}-zone-{proxy_zone}"
+                f"http://brd-customer-{customer_id}-zone-{browser_zone}"
                 f":{api_key}@brd.superproxy.com:22225"
             )
             http_client = httpx.AsyncClient(
@@ -119,7 +132,7 @@ async def get_client() -> httpx.AsyncClient:
                 timeout=15.0,
                 verify=False,  # BD proxy terminates SSL; inner cert checked server-side
             )
-            print(f"🌐 [LUCY] HTTP client → Bright Data zone '{proxy_zone}'.")
+            print(f"🌐 [LUCY] HTTP client → Bright Data zone '{browser_zone}'.")
         else:
             http_client = httpx.AsyncClient(timeout=15.0)
             print("⚠️  [LUCY] HTTP client → direct (no BD credentials). Set BRIGHTDATA_API_KEY + BRIGHTDATA_CUSTOMER_ID.")
@@ -130,18 +143,6 @@ async def get_client() -> httpx.AsyncClient:
 # ---------------------------------------------------------------------------
 # Logging helpers
 # ---------------------------------------------------------------------------
-
-class Colors:
-    HEADER    = "\033[95m"
-    BLUE      = "\033[94m"
-    CYAN      = "\033[96m"
-    GREEN     = "\033[92m"
-    YELLOW    = "\033[93m"
-    RED       = "\033[91m"
-    ENDC      = "\033[0m"
-    BOLD      = "\033[1m"
-    UNDERLINE = "\033[4m"
-    DIM       = "\033[2m"
 
 
 def format_lucy_log(symbol: str, confidence: float, insight: str) -> str:
@@ -298,18 +299,28 @@ async def get_global_movers() -> dict:
 async def get_tokens() -> list | None:
     """
     ACCESS + EXTRACT: Fetches Pyth price feeds and CoinGecko coin list in
-    parallel through the Bright Data-proxied client.  The proxy prevents
-    CoinGecko from blocking the server's IP when this runs on a shared host.
+    parallel.
+
+    Uses a direct (non-proxied) client for both sources:
+    - Pyth (hermes.pyth.network) blocks residential proxy IPs outright.
+    - CoinGecko's /coins/list endpoint is public and does not require bot
+      bypass — routing it through the BD residential proxy caused DNS
+      resolution failures ([Errno -2]) in the Coolify container context
+      because the proxy's DNS doesn't resolve these hostnames reliably
+      at deploy time (before the runtime network is fully up).
+
+    The BD proxy is still used for fetch_dex_whales() and other scraping
+    calls where bot bypass is actually needed.
     """
     pyth_url = "https://hermes.pyth.network/v2/price_feeds?asset_type=crypto"
     cg_url   = "https://api.coingecko.com/api/v3/coins/list?include_platform=true"
 
     try:
-        client = await get_client()
-        pyth_res, cg_res = await asyncio.gather(
-            client.get(pyth_url, timeout=20.0),
-            client.get(cg_url,   timeout=20.0),
-        )
+        async with httpx.AsyncClient(timeout=20.0) as direct:
+            pyth_res, cg_res = await asyncio.gather(
+                direct.get(pyth_url),
+                direct.get(cg_url),
+            )
     except Exception as e:
         print(f"❌ [LUCY] get_tokens fetch error: {e}")
         return None
@@ -378,17 +389,10 @@ def extract_symbol(db, text: str, session_id: str = "default_user") -> str | Non
 # [ACCESS] Pyth price fetch — via BD-proxied client
 # ---------------------------------------------------------------------------
 
-_pyth_client: httpx.AsyncClient | None = None  # Direct, no proxy
-
-async def get_pyth_client() -> httpx.AsyncClient:
-    global _pyth_client
-    if _pyth_client is None or _pyth_client.is_closed:
-        _pyth_client = httpx.AsyncClient(timeout=10.0)  # Direct connection
-    return _pyth_client
-
 async def fetch_pyth_price(price_id: str, timeout: float = 10.0) -> float | str | None:
     """
-    ACCESS: Fetches the latest Pyth oracle price through the Bright Data proxy.
+    ACCESS: Fetches the latest Pyth oracle price via a direct client.
+    Pyth blocks residential proxy IPs — uses get_pyth_client() not get_client().
 
     Returns a float price, the sentinel string "STALE", or None on failure.
     """
@@ -419,9 +423,9 @@ async def fetch_pyth_price(price_id: str, timeout: float = 10.0) -> float | str 
         return None
 
     except httpx.ConnectError:
-        print("❌ Pyth: Connection error via Bright Data proxy.")
+        print("❌ Pyth: Connection error (direct client).")
     except httpx.TimeoutException:
-        print("❌ Pyth: Timeout via Bright Data proxy.")
+        print("❌ Pyth: Request timed out (direct client).")
     except Exception as e:
         print(f"❌ Pyth: {type(e).__name__} — {e}")
     return None
@@ -656,7 +660,7 @@ def mine_investor_behavior(db, symbol: str) -> str:
     Mines the database for whale activity in the last 24 hours.
     Returns a behavioural context string for Lucy's brain.
     """
-    one_day_ago = func.now() - timedelta(hours=24)
+    one_day_ago = datetime.now() - timedelta(hours=24)
 
     avg_vol = (
         db.query(func.avg(InvestorBehavior.volume))

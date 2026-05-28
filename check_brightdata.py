@@ -13,7 +13,6 @@ TOKEN = os.getenv("BRIGHTDATA_API_KEY")
 SERP_ZONE = os.getenv("BRIGHTDATA_SERP_ZONE", "serp_api")
 UNLOCKER_ZONE = os.getenv("BRIGHTDATA_UNLOCKER_ZONE", "web_unlocker")
 BROWSER_ZONE = os.getenv("BRIGHTDATA_BROWSER_ZONE", "scraping_browser")
-PROXY_ZONE = os.getenv("BRIGHTDATA_PROXY_ZONE", "residential")
 
 async def test_mcp_server():
     print("\n--- 1. Testing Hosted MCP Server Connection ---")
@@ -193,30 +192,6 @@ def test_scraper_studio():
         print(f"❌ Scraper Studio API connection failed: {e}")
         return False
 
-def test_proxy_networks():
-    print("\n--- 7. Testing Rotating Proxy Network ---")
-    if not API_KEY or not CUSTOMER_ID:
-        print("⚠️ Skip: BRIGHTDATA_API_KEY or BRIGHTDATA_CUSTOMER_ID not set.")
-        return False
-        
-    proxy_url = f"http://brd-customer-{CUSTOMER_ID}-zone-{PROXY_ZONE}:{API_KEY}@brd.superproxy.com:22225"
-    proxies = {"http": proxy_url, "https": proxy_url}
-    test_url = "https://httpbin.org/ip"
-    
-    try:
-        print(f"🌐 Querying {test_url} through rotating proxy zone: {PROXY_ZONE}...")
-        response = requests.get(test_url, proxies=proxies, verify=False, timeout=15)
-        if response.status_code == 200:
-            print("✅ Proxy Network request successful!")
-            print(f"📄 Response IP content: {response.text.strip()}")
-            return True
-        else:
-            print(f"❌ Proxy Network error. Status: {response.status_code}, Body: {response.text}")
-            return False
-    except Exception as e:
-        print(f"❌ Proxy Network connection failed: {e}")
-        return False
-
 async def main():
     print("🔍 Starting Bright Data 7-Product Verification Diagnostics...")
     await test_mcp_server()
@@ -225,7 +200,6 @@ async def main():
     await test_scraping_browser()
     test_datasets_scrapers()
     test_scraper_studio()
-    test_proxy_networks()
     print("\n🏁 Diagnostics Finished.")
 
 if __name__ == "__main__":
