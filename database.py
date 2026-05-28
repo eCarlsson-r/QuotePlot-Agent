@@ -18,10 +18,12 @@ if not SQLALCHEMY_DATABASE_URL:
 
 # pool_size and max_overflow help manage the connection pool for multiple routers
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, 
-    pool_size=10, 
-    max_overflow=20,
-    pool_pre_ping=True
+    SQLALCHEMY_DATABASE_URL,
+    pool_size=5,          # 5 persistent connections — enough for 1 uvicorn worker
+    max_overflow=10,      # Up to 10 extra on burst (APScheduler + concurrent requests)
+    pool_timeout=30,      # Wait max 30s for a connection before raising
+    pool_recycle=1800,    # Recycle connections every 30 min — prevents MySQL 8h timeout drop
+    pool_pre_ping=True,   # Verify connection alive before using (catches dropped connections)
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
