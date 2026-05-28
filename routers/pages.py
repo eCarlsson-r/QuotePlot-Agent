@@ -42,46 +42,58 @@ def _get_or_set_session_id(request: Request) -> str:
 
 
 def _fetch_tickers(db: Session) -> dict[str, Any]:
-    # 1. Fetch only active symbols first (drastically reduces the search space)
-    active_symbols_query = select(TokenMap.symbol).where(TokenMap.is_active == True)
-    active_symbols = db.execute(active_symbols_query).scalars().all()
+    current_time = time.time()
     
-    if not active_symbols:
-        return {}
-
-    # 2. Optimized window query targeting only the active subset
-    ranked_subquery = (
-        select(
-            Stock.symbol,
-            Stock.price,
-            func.row_number()
-            .over(partition_by=Stock.symbol, order_by=Stock.datetime.desc())
-            .label("rn"),
-        )
-        .where(Stock.symbol.in_(active_symbols)) # 👈 Crucial: Explicit list bounds the scan
-        .subquery()
-    )
+    # If cache is still valid, return it instantly
+    if _TICKERS_CACHE["data"] is not None and current_time < _TICKERS_CACHE["expiry"]:
+        return _TICKERS_CACHE["data"]
     
-    query = select(ranked_subquery).where(ranked_subquery.c.rn <= 2)
-    rows = db.execute(query).mappings().all()
-
-    tickers: dict[str, dict[str, float | None]] = {}
-    for row in rows:
-        sym = row["symbol"]
-        price = float(row["price"])
-        if sym not in tickers:
-            tickers[sym] = {"current": price, "prev": None}
-        else:
-            tickers[sym]["prev"] = price
-
-    result: dict[str, Any] = {}
-    for sym, p in tickers.items():
-        change = 0.0
-        if p["prev"] and p["prev"] != 0:
-            change = ((p["current"] - p["prev"]) / p["prev"]) * 100
-        result[sym] = {"price": p["current"], "change": round(change, 2)}
+    try:
+        # 1. Fetch only active symbols first (drastically reduces the search space)
+        active_symbols_query = select(TokenMap.symbol).where(TokenMap.is_active == True)
+        active_symbols = db.execute(active_symbols_query).scalars().all()
         
-    return result
+        if not active_symbols:
+            return {}
+
+        # 2. Optimized window query targeting only the active subset
+        ranked_subquery = (
+            select(
+                Stock.symbol,
+                Stock.price,
+                func.row_number()
+                .over(partition_by=Stock.symbol, order_by=Stock.datetime.desc())
+                .label("rn"),
+            )
+            .where(Stock.symbol.in_(active_symbols)) # 👈 Crucial: Explicit list bounds the scan
+            .subquery()
+        )
+        
+        query = select(ranked_subquery).where(ranked_subquery.c.rn <= 2)
+        rows = db.execute(query).mappings().all()
+
+        tickers: dict[str, dict[str, float | None]] = {}
+        for row in rows:
+            sym = row["symbol"]
+            price = float(row["price"])
+            if sym not in tickers:
+                tickers[sym] = {"current": price, "prev": None}
+            else:
+                tickers[sym]["prev"] = price
+
+        result: dict[str, Any] = {}
+        for sym, p in tickers.items():
+            change = 0.0
+            if p["prev"] and p["prev"] != 0:
+                change = ((p["current"] - p["prev"]) / p["prev"]) * 100
+            result[sym] = {"price": p["current"], "change": round(change, 2)}
+            
+        return result
+    except Exception as e:
+        # Fallback to stale cache if database/BrightData goes down completely
+        if _TICKERS_CACHE["data"] is not None:
+            return _TICKERS_CACHE["data"]
+        raise e
 
 def _fetch_history(db: Session, symbol: str) -> list[dict[str, Any]]:
     query = sql_text(
