@@ -1,35 +1,6 @@
 import json
 import os
-import subprocess
-import sys
 from pathlib import Path
-
-# ---------------------------------------------------------------------------
-# Playwright browser install — runs once on container start.
-# Coolify has no Dockerfile post-install hook that reliably fires after pip,
-# so we install the Chromium binary here if it isn't already present.
-# subprocess.run is safe at module level because this completes before
-# uvicorn starts accepting requests.
-# ---------------------------------------------------------------------------
-def _ensure_playwright_browsers():
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            p.chromium.launch()         # Fast check — raises if binary missing
-        print("✅ [LUCY] Playwright Chromium already installed.")
-    except Exception:
-        print("🔧 [LUCY] Installing Playwright Chromium browsers...")
-        result = subprocess.run(
-            [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
-            capture_output=True, text=True
-        )
-        if result.returncode == 0:
-            print("✅ [LUCY] Playwright Chromium installed successfully.")
-        else:
-            print(f"⚠️  [LUCY] Playwright install failed:\n{result.stderr}")
-
-_ensure_playwright_browsers()
-
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -173,13 +144,3 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text() 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-
-import uvicorn
-uvicorn.run(
-    "main:app",
-    host="0.0.0.0",
-    port=int(os.getenv("PORT", 80)),
-    workers=1,       # Single worker — APScheduler must not run in multiple processes
-    loop="uvloop",   # Faster event loop (uvloop already in requirements.txt)
-    reload=False,    # Never reload in production — Coolify restarts the container on deploy
-)
