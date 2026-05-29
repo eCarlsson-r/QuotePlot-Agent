@@ -52,7 +52,9 @@ async def _serp_post(url: str) -> Dict[str, Any]:
     Shared SERP API POST helper — DRY wrapper used by all SERP functions.
     Previously each function duplicated the same requests.post block.
     """
-    api_key  = os.getenv("BRIGHTDATA_API_KEY")
+    from urllib.parse import quote, urlparse, urlunparse, urlencode, parse_qs
+
+    api_key   = os.getenv("BRIGHTDATA_API_KEY")
     serp_zone = os.getenv("BRIGHTDATA_SERP_ZONE")
 
     if not api_key or not serp_zone:
@@ -60,6 +62,17 @@ async def _serp_post(url: str) -> Dict[str, Any]:
             "error":   "Missing Bright Data credentials",
             "details": "Set BRIGHTDATA_API_KEY and BRIGHTDATA_SERP_ZONE in environment.",
         }
+
+    # FIX: BD API validates the url field as a strict URI — spaces and special
+    # chars in the query string cause HTTP 400 "must be a valid uri".
+    # Parse the URL and re-encode the query string properly.
+    parsed = urlparse(url)
+    # Re-encode the query string: parse existing params then urlencode them
+    qs_params = parse_qs(parsed.query, keep_blank_values=True)
+    # Flatten parse_qs lists back to single values
+    flat_params = {k: v[0] for k, v in qs_params.items()}
+    encoded_qs  = urlencode(flat_params, quote_via=quote)
+    safe_url    = urlunparse(parsed._replace(query=encoded_qs))
 
     client = await _get_bd_api_client()
     try:
@@ -71,7 +84,7 @@ async def _serp_post(url: str) -> Dict[str, Any]:
             },
             json={
                 "zone":    serp_zone,
-                "url":     url,
+                "url":     safe_url,
                 "format":  "raw",
                 "brd_json": "1",
             },
@@ -94,7 +107,8 @@ async def get_token_news_serp(
     symbol: str, query: Optional[str] = None
 ) -> Dict[str, Any]:
     """[DISCOVER] Fetch real-time news for a token via Bright Data SERP API."""
-    q = query or f"{symbol} crypto news price analysis"
+    from urllib.parse import quote_plus
+    q = quote_plus(query or f"{symbol} crypto news price analysis")
     return await _serp_post(
         url=f"https://www.google.com/search?q={q}&hl=en&gl=us"
     )
@@ -104,8 +118,10 @@ async def get_market_trends_serp(
     query: str = "crypto market trends 2026",
 ) -> Dict[str, Any]:
     """[DISCOVER] Fetch macro market trends via Bright Data SERP API."""
+    from urllib.parse import quote_plus
+    q = quote_plus(query)
     return await _serp_post(
-        url=f"https://www.google.com/search?q={query}&hl=en&gl=us"
+        url=f"https://www.google.com/search?q={q}&hl=en&gl=us"
     )
 
 
@@ -181,7 +197,7 @@ async def scrape_with_web_unlocker(url: str) -> Dict[str, Any]:
 
     proxy = (
         f"http://brd-customer-{customer_id}-zone-{zone}"
-        f":{api_key}@brd.superproxy.io:22225"
+        f":{api_key}@brd.superproxy.com:22225"
     )
     try:
         async with httpx.AsyncClient(proxy=proxy, verify=False, timeout=20.0) as client:
@@ -221,7 +237,7 @@ async def scrape_with_scraping_browser(
 
     ws_endpoint = (
         f"wss://brd-customer-{customer_id}-zone-{zone}"
-        f":{api_key}@brd.superproxy.io:9222"
+        f":{api_key}@brd.superproxy.com:9222"
     )
 
     try:
@@ -369,7 +385,7 @@ async def scrape_github_commits(repo_url: str) -> int:
 async def scrape_competitive_gpu_prices() -> list:
     """[DISCOVER] Scrape GPU pricing via Bright Data SERP API."""
     serp_data = await _serp_post(
-        url="https://www.google.com/search?q=buy+nvidia+rtx+4090+gpu+price+amazon&hl=en&gl=us"
+        url="https://www.google.com/search?q=buy+nvidia+rtx+4090+gpu+price+amazon&hl=en&gl=us",
     )
 
     _fallback = [
