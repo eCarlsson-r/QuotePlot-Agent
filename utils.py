@@ -129,7 +129,7 @@ async def get_client() -> httpx.AsyncClient:
         elif api_key and customer_id:
             bd_proxy = (
                 f"http://brd-customer-{customer_id}-zone-{proxy_zone}"
-                f":{api_key}@brd.superproxy.com:22225"
+                f":{api_key}@brd.superproxy.io:22225"
             )
             http_client = httpx.AsyncClient(
                 proxy=bd_proxy,
@@ -522,13 +522,29 @@ def parse_dexscreener_text(text: str) -> dict | None:
 # ---------------------------------------------------------------------------
 
 _dex_semaphore = asyncio.Semaphore(2)
+_dex_client: httpx.AsyncClient | None = None  # Direct client — no proxy
+
+
+async def _get_dex_client() -> httpx.AsyncClient:
+    """
+    Direct (non-proxied) client for DexScreener REST API.
+
+    DexScreener's JSON API is public and does not require bot bypass.
+    Routing it through the BD residential proxy caused [Errno -2] DNS failures
+    because the proxy's resolver intermittently can't resolve api.dexscreener.com.
+    The BD Scraping Browser (tier 2) is still used for the rendered pair page
+    where JS-rendered data needs a real browser.
+    """
+    global _dex_client
+    if _dex_client is None or _dex_client.is_closed:
+        _dex_client = httpx.AsyncClient(timeout=10.0)
+    return _dex_client
+
 
 async def fetch_dex_whales(address: str) -> dict | None:
     """
     EXTRACT: Queries the DexScreener REST API for whale volume/flow signals.
-
-    Uses the shared Bright Data-proxied client (ACCESS layer) so the server IP
-    is never exposed directly to DexScreener, preventing rate-limit bans.
+    Uses a direct client — DexScreener JSON API needs no proxy bypass.
     """
     if not address:
         return None
@@ -537,11 +553,11 @@ async def fetch_dex_whales(address: str) -> dict | None:
 
     async with _dex_semaphore:
         try:
-            client   = await get_client()   # BD-proxied — fixes per-call client bug
+            client   = await _get_dex_client()
             response = await client.get(url, timeout=10.0)
 
             if response.status_code == 429:
-                print(f"⚠️  DexScreener rate-limited for {address[:12]}… (BD proxy active)")
+                print(f"⚠️  DexScreener rate-limited for {address[:12]}…")
                 return None
             if response.status_code != 200:
                 return None
@@ -603,8 +619,12 @@ def infer_whale_activity(price_history) -> str:
 # ERC-20/SPL/BEP-20 tokens. Attempting to scrape these wastes time and always
 # falls through to Ghost Whale anyway.
 _NATIVE_L1_SYMBOLS = {
+    # Major L1 coins with no meaningful DEX pair
     "BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "DOGE", "LTC",
     "BCH", "DOT", "ATOM", "AVAX", "TRX", "TON", "NEAR",
+    # Native coins on their own chains — addresses are coin-type structs,
+    # not ERC-20/SPL contracts, so DexScreener has no pair page for them
+    "APT", "SUI", "SEI", "ALGO", "FTM", "ONE", "EGLD",
 }
 
 

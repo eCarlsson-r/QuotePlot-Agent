@@ -46,7 +46,7 @@ def test_web_unlocker():
         print("⚠️ Skip: BRIGHTDATA_API_KEY or BRIGHTDATA_CUSTOMER_ID not set.")
         return False
         
-    proxy_url = f"http://brd-customer-{CUSTOMER_ID}-zone-{UNLOCKER_ZONE}:{API_KEY}@brd.superproxy.com:22225"
+    proxy_url = f"http://brd-customer-{CUSTOMER_ID}-zone-{UNLOCKER_ZONE}:{API_KEY}@brd.superproxy.io:22225"
     proxies = {"http": proxy_url, "https": proxy_url}
     test_url = "https://httpbin.org/ip"
     
@@ -113,7 +113,7 @@ async def test_scraping_browser():
         print("⚠️ Skip: 'playwright' library not installed.")
         return False
         
-    ws_endpoint = f"wss://brd-customer-{CUSTOMER_ID}-zone-{BROWSER_ZONE}:{API_KEY}@brd.superproxy.com:9222"
+    ws_endpoint = f"wss://brd-customer-{CUSTOMER_ID}-zone-{BROWSER_ZONE}:{API_KEY}@brd.superproxy.io:9222"
     test_url = "https://httpbin.org/headers"
     
     try:

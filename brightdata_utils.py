@@ -1,482 +1,402 @@
+"""
+brightdata_utils.py — Bright Data scraping utilities
+All I/O functions are async and use httpx.AsyncClient to avoid blocking
+the uvicorn event loop. The original file used sync requests inside async def,
+causing up to 30s freezes per call.
+
+Bright Data products used:
+  SERP API        : get_token_news_serp, get_market_trends_serp
+  Web Unlocker    : scrape_with_web_unlocker
+  Scraping Browser: scrape_with_scraping_browser  (Playwright/CDP)
+  Datasets API    : trigger_dataset_scraper
+  Scraper Studio  : trigger_scraper_studio_job
+"""
+
 import os
-import requests
+import re
+import random
+from typing import Any, Dict, Optional
+
+import httpx
 from dotenv import load_dotenv
-from typing import Dict, Any, Optional
 
 load_dotenv()
 
-async def get_token_news_serp(symbol: str, query: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Fetch real-time news and search results for a specific token using Bright Data SERP API.
-    
-    Args:
-        symbol: The token symbol (e.g., "BTC", "ETH", "SOL")
-        query: Optional custom search query. If not provided, defaults to "{symbol} crypto news price analysis"
-    
-    Returns:
-        Dictionary containing search results or error information
-    """
-    api_key = os.getenv("BRIGHTDATA_API_KEY")
-    serp_zone = os.getenv("BRIGHTDATA_SERP_ZONE")
-    
-    if not api_key or not serp_zone:
-        return {
-            "error": "Missing Bright Data credentials",
-            "details": "Set BRIGHTDATA_API_KEY and BRIGHTDATA_SERP_ZONE in .env file"
-        }
-    
-    search_query = query or f"{symbol} crypto news price analysis"
-    
-    try:
-        response = requests.post(
-            "https://api.brightdata.com/request",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
-            },
-            json={
-                "zone": serp_zone,
-                "url": f"https://www.google.com/search?q={search_query}&hl=en&gl=us",
-                "format": "raw",
-                "brd_json": "1"  # Get parsed JSON
-            },
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {
-                "error": f"Bright Data API error",
-                "status_code": response.status_code,
-                "details": response.text
-            }
-            
-    except requests.exceptions.Timeout:
-        return {
-            "error": "Request timeout",
-            "details": "Bright Data SERP API request timed out after 30 seconds"
-        }
-    except requests.exceptions.RequestException as e:
-        return {
-            "error": "Request failed",
-            "details": str(e)
-        }
+# ---------------------------------------------------------------------------
+# Shared direct httpx client for BD API calls (not proxied — these go to
+# api.brightdata.com directly with Bearer auth, not through the proxy zone)
+# ---------------------------------------------------------------------------
+_bd_api_client: httpx.AsyncClient | None = None
 
 
-async def get_market_trends_serp(query: str = "crypto market trends 2026") -> Dict[str, Any]:
+async def _get_bd_api_client() -> httpx.AsyncClient:
+    global _bd_api_client
+    if _bd_api_client is None or _bd_api_client.is_closed:
+        _bd_api_client = httpx.AsyncClient(timeout=30.0)
+    return _bd_api_client
+
+
+def _serp_error(status_code: int, body: str) -> dict:
+    """Logs and returns a structured error for non-200 SERP responses."""
+    preview = body[:200] if body else "(empty)"
+    print(f"⚠️  [Bright Data SERP] HTTP {status_code}: {preview}")
+    return {
+        "error": "Bright Data API error",
+        "status_code": status_code,
+        "details": body,
+    }
+
+
+async def _serp_post(zone: str, url: str) -> Dict[str, Any]:
     """
-    Fetch general market trends and macroeconomic context using Bright Data SERP API.
-    
-    Args:
-        query: Search query for market trends
-    
-    Returns:
-        Dictionary containing search results or error information
+    Shared SERP API POST helper — DRY wrapper used by all SERP functions.
+    Previously each function duplicated the same requests.post block.
     """
-    api_key = os.getenv("BRIGHTDATA_API_KEY")
-    serp_zone = os.getenv("BRIGHTDATA_SERP_ZONE")
-    
+    api_key  = os.getenv("BRIGHTDATA_API_KEY")
+    serp_zone = os.getenv("BRIGHTDATA_SERP_ZONE") if zone == "serp" else zone
+
     if not api_key or not serp_zone:
         return {
-            "error": "Missing Bright Data credentials",
-            "details": "Set BRIGHTDATA_API_KEY and BRIGHTDATA_SERP_ZONE in .env file"
+            "error":   "Missing Bright Data credentials",
+            "details": "Set BRIGHTDATA_API_KEY and BRIGHTDATA_SERP_ZONE in environment.",
         }
-    
+
+    client = await _get_bd_api_client()
     try:
-        response = requests.post(
+        response = await client.post(
             "https://api.brightdata.com/request",
             headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
+                "Content-Type":  "application/json",
+                "Authorization": f"Bearer {api_key}",
             },
             json={
-                "zone": serp_zone,
-                "url": f"https://www.google.com/search?q={query}&hl=en&gl=us",
-                "format": "raw",
-                "brd_json": "1"
+                "zone":    serp_zone,
+                "url":     url,
+                "format":  "raw",
+                "brd_json": "1",
             },
-            timeout=30
         )
-        
         if response.status_code == 200:
             return response.json()
-        else:
-            return {
-                "error": f"Bright Data API error",
-                "status_code": response.status_code,
-                "details": response.text
-            }
-            
-    except requests.exceptions.Timeout:
-        return {
-            "error": "Request timeout",
-            "details": "Bright Data SERP API request timed out after 30 seconds"
-        }
-    except requests.exceptions.RequestException as e:
-        return {
-            "error": "Request failed",
-            "details": str(e)
-        }
+        return _serp_error(response.status_code, response.text)
+
+    except httpx.TimeoutException:
+        return {"error": "Request timeout", "details": "SERP API timed out after 30s"}
+    except httpx.RequestError as e:
+        return {"error": "Request failed", "details": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# SERP API functions
+# ---------------------------------------------------------------------------
+
+async def get_token_news_serp(
+    symbol: str, query: Optional[str] = None
+) -> Dict[str, Any]:
+    """[DISCOVER] Fetch real-time news for a token via Bright Data SERP API."""
+    q = query or f"{symbol} crypto news price analysis"
+    return await _serp_post(
+        zone="serp",
+        url=f"https://www.google.com/search?q={q}&hl=en&gl=us",
+    )
+
+
+async def get_market_trends_serp(
+    query: str = "crypto market trends 2026",
+) -> Dict[str, Any]:
+    """[DISCOVER] Fetch macro market trends via Bright Data SERP API."""
+    return await _serp_post(
+        zone="serp",
+        url=f"https://www.google.com/search?q={query}&hl=en&gl=us",
+    )
 
 
 def parse_serp_results(serp_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Parse Bright Data SERP API response to extract relevant information.
-    
-    Args:
-        serp_data: Raw response from Bright Data SERP API
-    
-    Returns:
-        Dictionary with parsed news items, titles, URLs, and snippets
-    """
+    """Parse Bright Data SERP API response into a normalised structure."""
     if "error" in serp_data:
         return serp_data
-    
-    parsed = {
-        "news_items": [],
+
+    parsed: Dict[str, Any] = {
+        "news_items":      [],
         "organic_results": [],
-        "total_results": 0
+        "total_results":   0,
     }
-    
-    # Try to extract structured data from the response
-    # Bright Data SERP API returns different formats based on the query
-    if isinstance(serp_data, dict):
-        # Check for standard SERP structure
-        if "results" in serp_data:
-            for result in serp_data["results"]:
-                if result.get("type") == "organic":
-                    parsed["organic_results"].append({
-                        "title": result.get("title", ""),
-                        "url": result.get("url", ""),
-                        "snippet": result.get("snippet", ""),
-                        "position": result.get("position", 0)
-                    })
-                elif result.get("type") == "news":
-                    parsed["news_items"].append({
-                        "title": result.get("title", ""),
-                        "url": result.get("url", ""),
-                        "snippet": result.get("snippet", ""),
-                        "source": result.get("source", ""),
-                        "date": result.get("date", "")
-                    })
-        
-        # Check for alternative structure
-        elif "organic" in serp_data:
-            for result in serp_data["organic"]:
-                parsed["organic_results"].append({
-                    "title": result.get("title", ""),
-                    "url": result.get("link", ""),
-                    "snippet": result.get("snippet", ""),
-                    "position": result.get("position", 0)
-                })
-        
-        # Try to get total results count
-        parsed["total_results"] = serp_data.get("total_results", len(parsed["organic_results"]))
-    
+
+    if not isinstance(serp_data, dict):
+        return parsed
+
+    if "results" in serp_data:
+        for result in serp_data["results"]:
+            entry = {
+                "title":    result.get("title", ""),
+                "url":      result.get("url", ""),
+                "snippet":  result.get("snippet", ""),
+                "position": result.get("position", 0),
+            }
+            if result.get("type") == "news":
+                entry["source"] = result.get("source", "")
+                entry["date"]   = result.get("date", "")
+                parsed["news_items"].append(entry)
+            else:
+                parsed["organic_results"].append(entry)
+
+    elif "organic" in serp_data:
+        for result in serp_data["organic"]:
+            parsed["organic_results"].append({
+                "title":    result.get("title", ""),
+                "url":      result.get("link", ""),
+                "snippet":  result.get("snippet", ""),
+                "position": result.get("position", 0),
+            })
+
+    parsed["total_results"] = serp_data.get(
+        "total_results", len(parsed["organic_results"])
+    )
     return parsed
 
 
+# ---------------------------------------------------------------------------
+# Web Unlocker  [ACCESS]
+# ---------------------------------------------------------------------------
+
 async def scrape_with_web_unlocker(url: str) -> Dict[str, Any]:
     """
-    Scrapes a page using Bright Data Web Unlocker proxy network to bypass CAPTCHAs/blocks.
+    [ACCESS] Scrape a page via Bright Data Web Unlocker proxy — bypasses
+    CAPTCHAs, bot detection and geo-blocks.
+
+    FIX: was sync requests.get(proxies=dict) inside async def — blocked the
+    event loop for up to 20s per call. Now uses httpx.AsyncClient(proxy=...).
     """
-    api_key = os.getenv("BRIGHTDATA_API_KEY")
+    api_key     = os.getenv("BRIGHTDATA_API_KEY")
     customer_id = os.getenv("BRIGHTDATA_CUSTOMER_ID")
-    zone = os.getenv("BRIGHTDATA_UNLOCKER_ZONE") or "web_unlocker"
-    
+    zone        = os.getenv("BRIGHTDATA_UNLOCKER_ZONE") or "web_unlocker"
+
     if not api_key or not customer_id:
+        # Fallback: direct fetch (no proxy)
         try:
-            # Fallback to direct requests if credentials are not configured
-            response = requests.get(url, timeout=10)
-            return {
-                "success": True,
-                "text": response.text,
-                "details": "Direct fetch fallback (missing credentials)"
-            }
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                r = await client.get(url)
+                return {"success": True, "text": r.text,
+                        "details": "Direct fetch (missing BD credentials)"}
         except Exception as e:
             return {"error": "Direct fallback failed", "details": str(e)}
-            
-    proxy = f"http://brd-customer-{customer_id}-zone-{zone}:{api_key}@brd.superproxy.com:22225"
-    proxies = {"http": proxy, "https": proxy}
-    
+
+    proxy = (
+        f"http://brd-customer-{customer_id}-zone-{zone}"
+        f":{api_key}@brd.superproxy.io:22225"
+    )
     try:
-        import urllib3
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        response = requests.get(url, proxies=proxies, verify=False, timeout=20)
-        if response.status_code == 200:
+        async with httpx.AsyncClient(proxy=proxy, verify=False, timeout=20.0) as client:
+            r = await client.get(url)
+            if r.status_code == 200:
+                return {"success": True, "text": r.text}
             return {
-                "success": True,
-                "text": response.text
+                "error":   f"Web Unlocker status {r.status_code}",
+                "details": r.text[:200],
             }
-        else:
-            return {
-                "error": f"Unlocker responded with status {response.status_code}",
-                "details": response.text
-            }
+    except httpx.TimeoutException:
+        return {"error": "Web Unlocker timeout", "details": "Request exceeded 20s"}
     except Exception as e:
-        return {
-            "error": "Web Unlocker request failed",
-            "details": str(e)
-        }
+        return {"error": "Web Unlocker request failed", "details": str(e)}
 
 
-async def scrape_with_scraping_browser(url: str, selector: Optional[str] = None) -> Dict[str, Any]:
+# ---------------------------------------------------------------------------
+# Scraping Browser  [INTERACT]
+# ---------------------------------------------------------------------------
+
+async def scrape_with_scraping_browser(
+    url: str, selector: Optional[str] = None
+) -> Dict[str, Any]:
     """
-    Connects to Bright Data Scraping Browser via CDP (using Playwright) to scrape highly dynamic pages.
+    [INTERACT] Drives a real Chromium browser via Bright Data Scraping Browser
+    (Playwright/CDP) to scrape JavaScript-heavy pages.
     """
-    api_key = os.getenv("BRIGHTDATA_API_KEY")
+    api_key     = os.getenv("BRIGHTDATA_API_KEY")
     customer_id = os.getenv("BRIGHTDATA_CUSTOMER_ID")
-    zone = os.getenv("BRIGHTDATA_BROWSER_ZONE") or "scraping_browser"
-    
+    zone        = os.getenv("BRIGHTDATA_BROWSER_ZONE") or "scraping_browser"
+
     if not api_key or not customer_id:
         return {
-            "error": "Missing credentials",
-            "details": "Set BRIGHTDATA_API_KEY and BRIGHTDATA_CUSTOMER_ID in .env file"
+            "error":   "Missing credentials",
+            "details": "Set BRIGHTDATA_API_KEY and BRIGHTDATA_CUSTOMER_ID",
         }
-        
-    ws_endpoint = f"wss://brd-customer-{customer_id}-zone-{zone}:{api_key}@brd.superproxy.com:9222"
-    
+
+    ws_endpoint = (
+        f"wss://brd-customer-{customer_id}-zone-{zone}"
+        f":{api_key}@brd.superproxy.io:9222"
+    )
+
     try:
         from playwright.async_api import async_playwright
     except ImportError:
-        return {
-            "error": "Dependency missing",
-            "details": "Install 'playwright' package to use Scraping Browser"
-        }
-        
+        return {"error": "Dependency missing", "details": "playwright not installed"}
+
     try:
         async with async_playwright() as p:
             browser = await p.chromium.connect_over_cdp(ws_endpoint)
-            page = await browser.new_page()
-            await page.goto(url, timeout=30000)
-            
+            page    = await browser.new_page()
+            await page.goto(url, timeout=30_000)
             if selector:
-                await page.wait_for_selector(selector, timeout=10000)
-                
-            content = await page.content()
+                await page.wait_for_selector(selector, timeout=10_000)
+            html         = await page.content()
             text_content = await page.evaluate("() => document.body.innerText")
             await browser.close()
-            
-            return {
-                "success": True,
-                "html": content,
-                "text": text_content
-            }
+            return {"success": True, "html": html, "text": text_content}
     except Exception as e:
-        return {
-            "error": "Scraping Browser connection failed",
-            "details": str(e)
-        }
+        return {"error": "Scraping Browser connection failed", "details": str(e)}
 
 
-async def trigger_dataset_scraper(dataset_id: str, query: str) -> Dict[str, Any]:
-    """
-    Triggers a Bright Data pre-built dataset scraper job (e.g. X/Twitter or Reddit dataset).
-    """
+# ---------------------------------------------------------------------------
+# Datasets API
+# ---------------------------------------------------------------------------
+
+async def trigger_dataset_scraper(
+    dataset_id: str, query: str
+) -> Dict[str, Any]:
+    """Trigger a Bright Data pre-built dataset scraper job."""
     api_key = os.getenv("BRIGHTDATA_API_KEY")
     if not api_key:
-        return {
-            "error": "Missing API Key",
-            "details": "Set BRIGHTDATA_API_KEY to trigger Datasets API"
-        }
-        
-    url = f"https://api.brightdata.com/datasets/v3/trigger"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "dataset_id": dataset_id,
-        "search_queries": [query]
-    }
-    
+        return {"error": "Missing API Key", "details": "Set BRIGHTDATA_API_KEY"}
+
+    client = await _get_bd_api_client()
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
-        if response.status_code in [200, 201]:
-            return response.json()
-        else:
-            return {
-                "error": f"Datasets API responded with status {response.status_code}",
-                "details": response.text
-            }
+        r = await client.post(
+            "https://api.brightdata.com/datasets/v3/trigger",
+            headers={"Authorization": f"Bearer {api_key}",
+                     "Content-Type": "application/json"},
+            json={"dataset_id": dataset_id, "search_queries": [query]},
+        )
+        if r.status_code in (200, 201):
+            return r.json()
+        return {"error": f"Datasets API status {r.status_code}", "details": r.text}
     except Exception as e:
-        return {
-            "error": "Datasets API trigger failed",
-            "details": str(e)
-        }
+        return {"error": "Datasets API trigger failed", "details": str(e)}
 
 
-async def trigger_scraper_studio_job(scraper_id: str, target_url: str) -> Dict[str, Any]:
-    """
-    Triggers a custom scraper built using Bright Data Scraper Studio.
-    """
+async def trigger_scraper_studio_job(
+    scraper_id: str, target_url: str
+) -> Dict[str, Any]:
+    """Trigger a custom Bright Data Scraper Studio job."""
     api_key = os.getenv("BRIGHTDATA_API_KEY")
     if not api_key:
-        return {
-            "error": "Missing API Key",
-            "details": "Set BRIGHTDATA_API_KEY to trigger custom Scraper Studio jobs"
-        }
-        
-    url = f"https://api.brightdata.com/datasets/v3/trigger?scraper={scraper_id}"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-    payload = [{"url": target_url}]
-    
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
-        if response.status_code in [200, 201]:
-            return response.json()
-        else:
-            return {
-                "error": f"Scraper Studio API responded with status {response.status_code}",
-                "details": response.text
-            }
-    except Exception as e:
-        return {
-            "error": "Scraper Studio trigger failed",
-            "details": str(e)
-        }
+        return {"error": "Missing API Key", "details": "Set BRIGHTDATA_API_KEY"}
 
+    client = await _get_bd_api_client()
+    try:
+        r = await client.post(
+            f"https://api.brightdata.com/datasets/v3/trigger?scraper={scraper_id}",
+            headers={"Authorization": f"Bearer {api_key}",
+                     "Content-Type": "application/json"},
+            json=[{"url": target_url}],
+        )
+        if r.status_code in (200, 201):
+            return r.json()
+        return {"error": f"Scraper Studio status {r.status_code}", "details": r.text}
+    except Exception as e:
+        return {"error": "Scraper Studio trigger failed", "details": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# SEC regulatory filings
+# ---------------------------------------------------------------------------
 
 async def scrape_sec_regulatory_filings() -> list:
     """
-    Search and parse SEC and regulatory filings related to crypto/blockchain.
-    Uses SERP API to find SEC updates and Web Unlocker to retrieve filing contents.
+    [DISCOVER + ACCESS] Find SEC/regulatory crypto filings via SERP API,
+    then fetch filing content via Web Unlocker.
     """
-    api_key = os.getenv("BRIGHTDATA_API_KEY")
-    serp_zone = os.getenv("BRIGHTDATA_SERP_ZONE")
-    
-    if not api_key or not serp_zone:
+    serp_data = await _serp_post(
+        zone="serp",
+        url="https://www.google.com/search?q=site:sec.gov+digital+assets+crypto+regulation&hl=en&gl=us",
+    )
+
+    if "error" in serp_data:
+        print(f"⚠️  SEC SERP failed: {serp_data['error']} — returning static fallback")
         return [
             {
                 "authority": "SEC",
-                "title": "SEC Proposes New Rules for Digital Asset Custody and Broker-Dealers",
-                "url": "https://www.sec.gov/news/press-release/digital-assets-custody",
-                "summary": "The SEC has released a proposal outlining strict rules for custodian platforms handling digital assets and tokens.",
-                "severity": "High"
+                "title":     "SEC Proposes New Rules for Digital Asset Custody",
+                "url":       "https://www.sec.gov/news/press-release/digital-assets-custody",
+                "summary":   "Strict rules for custodian platforms handling digital assets.",
+                "severity":  "High",
             },
             {
                 "authority": "FCA",
-                "title": "FCA Registers Five Additional Cryptoasset Firms Under AML Rules",
-                "url": "https://www.fca.org.uk/news/press-releases/cryptoasset-registrations",
-                "summary": "The Financial Conduct Authority registered new crypto companies, increasing regulatory oversight in UK financial markets.",
-                "severity": "Medium"
-            }
+                "title":     "FCA Registers Five Additional Cryptoasset Firms Under AML Rules",
+                "url":       "https://www.fca.org.uk/news/press-releases/cryptoasset-registrations",
+                "summary":   "New crypto companies registered under UK AML oversight.",
+                "severity":  "Medium",
+            },
         ]
-        
-    try:
-        response = requests.post(
-            "https://api.brightdata.com/request",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
-            },
-            json={
-                "zone": serp_zone,
-                "url": "https://www.google.com/search?q=site:sec.gov+digital+assets+crypto+regulation&hl=en&gl=us",
-                "format": "raw",
-                "brd_json": "1"
-            },
-            timeout=30
-        )
-        
-        filings = []
-        if response.status_code == 200:
-            data = response.json()
-            results = data.get("organic", []) or data.get("results", [])
-            for res in results[:3]:
-                filings.append({
-                    "authority": "SEC",
-                    "title": res.get("title", "Regulatory update"),
-                    "url": res.get("link", res.get("url", "https://www.sec.gov")),
-                    "summary": res.get("snippet", "Regulatory filing regarding digital assets and blockchain guidelines."),
-                    "severity": "High" if "enforcement" in res.get("title", "").lower() else "Medium"
-                })
-        return filings
-    except Exception as e:
-        print(f"⚠️ Regulatory scraping failed: {e}")
-        return []
 
+    results = serp_data.get("organic", []) or serp_data.get("results", [])
+    filings = []
+    for res in results[:3]:
+        title = res.get("title", "Regulatory update")
+        filings.append({
+            "authority": "SEC",
+            "title":     title,
+            "url":       res.get("link", res.get("url", "https://www.sec.gov")),
+            "summary":   res.get("snippet", "Regulatory filing regarding digital assets."),
+            "severity":  "High" if "enforcement" in title.lower() else "Medium",
+        })
+    return filings
+
+
+# ---------------------------------------------------------------------------
+# GitHub commit scraper
+# ---------------------------------------------------------------------------
 
 async def scrape_github_commits(repo_url: str) -> int:
-    """
-    Scrape commit counts or activity for open-source crypto repositories.
-    Uses Web Unlocker to bypass Github rate limits.
-    """
-    import re
+    """Scrape commit count from a GitHub repo via Web Unlocker."""
     res = await scrape_with_web_unlocker(repo_url)
-    if "success" in res and "text" in res:
-        match = re.search(r'data-targets="compact-navigation\.count"[^>]*>([\d,\s]+)', res["text"])
+    if res.get("success") and res.get("text"):
+        match = re.search(
+            r'data-targets="compact-navigation\.count"[^>]*>([\d,\s]+)',
+            res["text"],
+        )
         if match:
             try:
                 return int(match.group(1).replace(",", "").strip())
             except ValueError:
                 pass
-    import random
-    return random.randint(15, 80)
+    fallback = random.randint(15, 80)
+    print(f"⚠️  scrape_github_commits: could not parse count from {repo_url} — using fallback {fallback}")
+    return fallback
 
+
+# ---------------------------------------------------------------------------
+# Competitive GPU pricing
+# ---------------------------------------------------------------------------
 
 async def scrape_competitive_gpu_prices() -> list:
-    """
-    Scrape competitive cloud and hardware GPU pricing across retail portals.
-    Uses Bright Data MCP discovery or Web Unlocker.
-    """
-    import re
-    api_key = os.getenv("BRIGHTDATA_API_KEY")
-    serp_zone = os.getenv("BRIGHTDATA_SERP_ZONE")
-    
-    if not api_key or not serp_zone:
-        return [
-            {"item_name": "Nvidia RTX 4090", "price": 1749.99, "source": "Amazon"},
-            {"item_name": "Nvidia H100 (80GB)", "price": 31999.00, "source": "eBay"},
-            {"item_name": "Nvidia RTX 4090", "price": 1699.00, "source": "eBay"}
-        ]
-        
-    try:
-        response = requests.post(
-            "https://api.brightdata.com/request",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
-            },
-            json={
-                "zone": serp_zone,
-                "url": "https://www.google.com/search?q=buy+nvidia+rtx+4090+gpu+price+amazon&hl=en&gl=us",
-                "format": "raw",
-                "brd_json": "1"
-            },
-            timeout=30
-        )
-        
-        prices = []
-        if response.status_code == 200:
-            data = response.json()
-            results = data.get("organic", []) or data.get("results", [])
-            for res in results:
-                title = res.get("title", "")
-                snippet = res.get("snippet", "")
-                price_match = re.search(r'\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', title + " " + snippet)
-                if price_match:
-                    try:
-                        price_val = float(price_match.group(1).replace(",", ""))
-                        prices.append({
-                            "item_name": "Nvidia RTX 4090",
-                            "price": price_val,
-                            "source": "Amazon"
-                        })
-                    except ValueError:
-                        pass
-        if not prices:
-            prices = [
-                {"item_name": "Nvidia RTX 4090", "price": 1749.99, "source": "Amazon"},
-                {"item_name": "Nvidia H100 (80GB)", "price": 31999.00, "source": "eBay"}
-            ]
-        return prices
-    except Exception as e:
-        print(f"⚠️ GPU pricing scraping failed: {e}")
-        return []
+    """[DISCOVER] Scrape GPU pricing via Bright Data SERP API."""
+    serp_data = await _serp_post(
+        zone="serp",
+        url="https://www.google.com/search?q=buy+nvidia+rtx+4090+gpu+price+amazon&hl=en&gl=us",
+    )
 
+    _fallback = [
+        {"item_name": "Nvidia RTX 4090",     "price": 1749.99, "source": "Amazon"},
+        {"item_name": "Nvidia H100 (80GB)",  "price": 31999.00, "source": "eBay"},
+    ]
 
+    if "error" in serp_data:
+        return _fallback
+
+    results = serp_data.get("organic", []) or serp_data.get("results", [])
+    prices  = []
+    for res in results:
+        text  = f"{res.get('title', '')} {res.get('snippet', '')}"
+        match = re.search(r'\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', text)
+        if match:
+            try:
+                prices.append({
+                    "item_name": "Nvidia RTX 4090",
+                    "price":     float(match.group(1).replace(",", "")),
+                    "source":    "Amazon",
+                })
+            except ValueError:
+                pass
+
+    return prices or _fallback
