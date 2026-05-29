@@ -47,13 +47,13 @@ def _serp_error(status_code: int, body: str) -> dict:
     }
 
 
-async def _serp_post(zone: str, url: str) -> Dict[str, Any]:
+async def _serp_post(url: str) -> Dict[str, Any]:
     """
     Shared SERP API POST helper — DRY wrapper used by all SERP functions.
     Previously each function duplicated the same requests.post block.
     """
     api_key  = os.getenv("BRIGHTDATA_API_KEY")
-    serp_zone = os.getenv("BRIGHTDATA_SERP_ZONE") if zone == "serp" else zone
+    serp_zone = os.getenv("BRIGHTDATA_SERP_ZONE")
 
     if not api_key or not serp_zone:
         return {
@@ -96,8 +96,7 @@ async def get_token_news_serp(
     """[DISCOVER] Fetch real-time news for a token via Bright Data SERP API."""
     q = query or f"{symbol} crypto news price analysis"
     return await _serp_post(
-        zone="serp",
-        url=f"https://www.google.com/search?q={q}&hl=en&gl=us",
+        url=f"https://www.google.com/search?q={q}&hl=en&gl=us"
     )
 
 
@@ -106,8 +105,7 @@ async def get_market_trends_serp(
 ) -> Dict[str, Any]:
     """[DISCOVER] Fetch macro market trends via Bright Data SERP API."""
     return await _serp_post(
-        zone="serp",
-        url=f"https://www.google.com/search?q={query}&hl=en&gl=us",
+        url=f"https://www.google.com/search?q={query}&hl=en&gl=us"
     )
 
 
@@ -306,8 +304,7 @@ async def scrape_sec_regulatory_filings() -> list:
     then fetch filing content via Web Unlocker.
     """
     serp_data = await _serp_post(
-        zone="serp",
-        url="https://www.google.com/search?q=site:sec.gov+digital+assets+crypto+regulation&hl=en&gl=us",
+        url="https://www.google.com/search?q=site:sec.gov+digital+assets+crypto+regulation&hl=en&gl=us"
     )
 
     if "error" in serp_data:
@@ -372,8 +369,7 @@ async def scrape_github_commits(repo_url: str) -> int:
 async def scrape_competitive_gpu_prices() -> list:
     """[DISCOVER] Scrape GPU pricing via Bright Data SERP API."""
     serp_data = await _serp_post(
-        zone="serp",
-        url="https://www.google.com/search?q=buy+nvidia+rtx+4090+gpu+price+amazon&hl=en&gl=us",
+        url="https://www.google.com/search?q=buy+nvidia+rtx+4090+gpu+price+amazon&hl=en&gl=us"
     )
 
     _fallback = [
