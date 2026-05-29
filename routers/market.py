@@ -64,35 +64,47 @@ async def get_web3_token_list(db: Session = Depends(get_db)):
 # /history/{symbol}
 # ---------------------------------------------------------------------------
 
+# Simple TTL cache — keyed by symbol, avoids running LIMIT 1000 query on
+# every 2-second frontend poll. History only changes when oracle syncs fire
+# (every 2 min), so a 30s TTL is a good balance between freshness and load.
+_history_cache: dict[str, dict] = {}   # {"BTC": {"data": [...], "expires_at": 0.0}}
+_HISTORY_TTL = 30.0
+
 @router.get("/history/{symbol}")
 async def get_history(symbol: str, db: Session = Depends(get_db)):
     """
     Provides OHLC-style price history for amCharts visuals.
-
-    FIX: symbol is passed straight from the URL into a raw SQL query via a
-    parameterised placeholder (:s) — that part is safe.  But the symbol was
-    not normalised to uppercase, so "btc" and "BTC" returned different (empty
-    vs populated) result sets depending on how the token was seeded.
+    Cached for 30s — frontend polls every ~2s but history only changes every 2 min.
     """
+    import time
+    sym = symbol.upper()
+    now = time.monotonic()
+
+    cached = _history_cache.get(sym)
+    if cached and now < cached["expires_at"]:
+        return cached["data"]
+
     query = sql_text(
         "SELECT price, datetime FROM stocks "
         "WHERE symbol = :s ORDER BY datetime ASC LIMIT 1000"
     )
-    rows = db.execute(query, {"s": symbol.upper()}).mappings().all()
+    rows = db.execute(query, {"s": sym}).mappings().all()
 
     if not rows:
         raise HTTPException(
             status_code=404,
-            detail=f"No price history found for '{symbol.upper()}'.",
+            detail=f"No price history found for '{sym}'.",
         )
 
-    return [
+    result = [
         {
             "datetime": int(r["datetime"].timestamp() * 1000),
             "price":    float(r["price"]),
         }
         for r in rows
     ]
+    _history_cache[sym] = {"data": result, "expires_at": now + _HISTORY_TTL}
+    return result
 
 
 # ---------------------------------------------------------------------------

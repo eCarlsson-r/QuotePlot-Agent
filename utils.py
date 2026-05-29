@@ -599,6 +599,15 @@ def infer_whale_activity(price_history) -> str:
 # [INTERACT] Resolve investor flow — full Bright Data pipeline
 # ---------------------------------------------------------------------------
 
+# Native L1 assets have no meaningful DEX pair — DexScreener only covers
+# ERC-20/SPL/BEP-20 tokens. Attempting to scrape these wastes time and always
+# falls through to Ghost Whale anyway.
+_NATIVE_L1_SYMBOLS = {
+    "BTC", "ETH", "BNB", "SOL", "XRP", "ADA", "DOGE", "LTC",
+    "BCH", "DOT", "ATOM", "AVAX", "TRX", "TON", "NEAR",
+}
+
+
 async def resolve_investor_flow(token, db) -> dict:
     """
     Full Bright Data pipeline for whale flow resolution:
@@ -616,6 +625,21 @@ async def resolve_investor_flow(token, db) -> dict:
     Bright Data product fired.
     """
     symbol = token.symbol
+
+    # Native L1 assets skip DexScreener entirely — they have no ERC-20/SPL
+    # pair page and the addresses in the DB are wrapped token contracts that
+    # return misleading liquidity data. Go straight to Ghost Whale inference.
+    if symbol in _NATIVE_L1_SYMBOLS:
+        history = (
+            db.query(Stock)
+            .filter(Stock.symbol == symbol)
+            .order_by(Stock.datetime.desc())
+            .limit(2)
+            .all()
+        )
+        inferred = infer_whale_activity(history)
+        print(f"👻 [LUCY] {symbol} → Ghost Whale (native L1 — DexScreener skipped)")
+        return map_to_investor_behavior(symbol, inferred, 500.0)
 
     # --- Tier 1: REST API via BD-proxied client (EXTRACT) ---
     whale_data = await fetch_dex_whales(token.address)
