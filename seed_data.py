@@ -1,18 +1,3 @@
-"""
-seed_data.py — QuotePlot database seeder
-Runs after migrate.py --fresh in the post-deployment command.
-
-Usage:
-    /opt/venv/bin/python seed_data.py
-
-Bright Data integration (Discover → Access → Extract):
-  DISCOVER : Bright Data SERP API queries Google for the top trending crypto
-             tokens right now — the seed list is live, not hardcoded.
-  ACCESS   : get_tokens() fetches Pyth + CoinGecko through the direct client.
-  EXTRACT  : Pyth feed IDs, CoinGecko contract addresses, and chain slugs are
-             extracted and stored per token for downstream oracle + DEX lookups.
-"""
-
 import asyncio
 import random
 import re
@@ -61,23 +46,51 @@ async def discover_trending_symbols() -> set[str]:
     serp_data = await get_market_trends_serp(
         "top trending cryptocurrency tokens 2026 by market cap"
     )
-    parsed = parse_serp_results(serp_data)
 
-    if parsed.get("error"):
-        print(f"⚠️  SERP unavailable ({parsed['error']}) — using fallback symbol list.")
+    if serp_data.get("error"):
+        print(f"  ⚠️  SERP unavailable ({serp_data['error']}) — using fallback.")
         return set(FALLBACK_SYMBOLS)
 
-    # Extract tickers from organic result titles + snippets.
-    # Tickers: 2-6 uppercase letters, optionally preceded by $
-    snippets = " ".join(
-        f"{r.get('title', '')} {r.get('snippet', '')}"
-        for r in parsed.get("organic_results", [])[:10]
+    # BD SERP raw response uses different keys depending on zone config.
+    # Try all known structures before falling back.
+    raw_results = (
+        serp_data.get("organic")            # most common with brd_json=1
+        or serp_data.get("organic_results")
+        or serp_data.get("results")
+        or []
     )
-    raw_tickers = re.findall(r'[$]?([A-Z]{2,6})', snippets)
-    discovered = {t for t in raw_tickers if t not in _STOPWORDS and len(t) >= 2}
+    print(f"  ℹ️  BD SERP keys: {list(serp_data.keys())[:8]}, organic rows: {len(raw_results)}")
+
+    corpus = " ".join(
+        f"{r.get('title', '')} {r.get('snippet', r.get('description', ''))}"
+        for r in raw_results[:10]
+    )
+
+    # Strategy 1: explicit $TICKER (highest confidence)
+    dollar_tickers = re.findall(r'\$([A-Z]{2,6})', corpus)
+
+    # Strategy 2: known coin name → ticker (catches prose like "Bitcoin surged")
+    NAME_TO_TICKER = {
+        "bitcoin": "BTC", "ethereum": "ETH", "solana": "SOL",
+        "binance": "BNB", "ripple": "XRP", "cardano": "ADA",
+        "dogecoin": "DOGE", "avalanche": "AVAX", "chainlink": "LINK",
+        "polkadot": "DOT", "polygon": "MATIC", "uniswap": "UNI",
+        "cosmos": "ATOM", "litecoin": "LTC", "injective": "INJ",
+        "arbitrum": "ARB", "optimism": "OP", "aptos": "APT",
+        "sui": "SUI", "bitcoin cash": "BCH",
+    }
+    corpus_lower = corpus.lower()
+    name_tickers = {sym for name, sym in NAME_TO_TICKER.items() if name in corpus_lower}
+
+    # Strategy 3: bare uppercase tokens (filtered by stopwords)
+    bare_tickers = {t for t in re.findall(r'([A-Z]{2,6})', corpus)
+                    if t not in _STOPWORDS}
+
+    discovered = set(dollar_tickers) | name_tickers | bare_tickers
+    print(f"  ℹ️  Found: ${dollar_tickers[:5]} | names={sorted(name_tickers)}")
 
     if len(discovered) < MIN_SEED_COUNT:
-        print(f"  ℹ️  SERP returned {len(discovered)} symbols — merging with fallback.")
+        print(f"  ℹ️  Only {len(discovered)} symbols found — merging with fallback.")
         discovered |= FALLBACK_SYMBOLS
 
     print(f"  ✅ Bright Data SERP discovered {len(discovered)} symbols: {sorted(discovered)}")
@@ -149,7 +162,11 @@ async def seed_web3_tokens():
 
         db.commit()
 
-    print(f"\n  🏁 Token seeding: {added} added, {updated} updated, {skipped} skipped.")
+    if added == 0 and updated == 0 and skipped > 0:
+        print(f"\n  ℹ️  All {skipped} tokens already exist — DB is up to date.")
+        print("     Run 'python migrate.py --fresh' first to reset and re-seed.")
+    else:
+        print(f"\n  🏁 Token seeding: {added} added, {updated} updated, {skipped} skipped.")
 
 
 # ---------------------------------------------------------------------------
