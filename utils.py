@@ -119,16 +119,12 @@ async def get_client() -> httpx.AsyncClient:
     global http_client
     if http_client is None or http_client.is_closed:
         api_key = os.getenv("BRIGHTDATA_API_KEY")
-        proxy_url = os.getenv("BRIGHTDATA_PROXY_URL")
-        proxy_zone = os.getenv("BRIGHTDATA_PROXY_ZONE") or "residential"
+        browser_zone = os.getenv("BRIGHTDATA_BROWSER_ZONE")
         customer_id = os.getenv("BRIGHTDATA_CUSTOMER_ID")
 
-        if proxy_url:
-            http_client = httpx.AsyncClient(proxy=proxy_url, timeout=15.0)
-            print("🌐 [LUCY] HTTP client → Bright Data proxy URL (Web Unlocker).")
-        elif api_key and customer_id:
+        if api_key and customer_id:
             bd_proxy = (
-                f"http://brd-customer-{customer_id}-zone-{proxy_zone}"
+                f"http://brd-customer-{customer_id}-zone-{browser_zone}"
                 f":{api_key}@brd.superproxy.io:22225"
             )
             http_client = httpx.AsyncClient(
@@ -136,7 +132,7 @@ async def get_client() -> httpx.AsyncClient:
                 timeout=15.0,
                 verify=False,  # BD proxy terminates SSL; inner cert checked server-side
             )
-            print(f"🌐 [LUCY] HTTP client → Bright Data zone '{proxy_zone}'.")
+            print(f"🌐 [LUCY] HTTP client → Bright Data zone '{browser_zone}'.")
         else:
             http_client = httpx.AsyncClient(timeout=15.0)
             print("⚠️  [LUCY] HTTP client → direct (no BD credentials). Set BRIGHTDATA_API_KEY + BRIGHTDATA_CUSTOMER_ID.")
