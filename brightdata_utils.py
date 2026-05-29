@@ -85,8 +85,7 @@ async def _serp_post(url: str) -> Dict[str, Any]:
             json={
                 "zone":    serp_zone,
                 "url":     safe_url,
-                "format":  "raw",
-                "brd_json": "1",
+                "format":  "json"
             },
         )
         if response.status_code == 200:
