@@ -11,8 +11,8 @@ Usage:
 
 import argparse
 from sqlalchemy import inspect, text
-from database import engine
-from models import Base
+from backend.database import engine
+from backend.models import Base
 
 # ---------------------------------------------------------------------------
 # Index definitions — composite indexes not expressed in models.py

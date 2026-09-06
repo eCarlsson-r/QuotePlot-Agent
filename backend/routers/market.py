@@ -14,10 +14,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, select
 from sqlalchemy import text as sql_text
 
-from brain import analyze_divergence
-from database import get_db
-from models import Stock, TokenMap
-from utils import get_tokens
+from backend.brain import analyze_divergence
+from backend.database import get_db
+from backend.models import Stock, TokenMap
+from backend.utils import get_tokens
 
 router = APIRouter(prefix="/api/market", tags=["market"])
 

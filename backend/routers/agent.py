@@ -23,17 +23,17 @@ from google.genai import types
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from brain import classify_user_intent, get_agent_stats, get_market_prediction
-from brightdata_mcp import get_brightdata_market_context, get_brightdata_social_sentiment
-from brightdata_utils import (
+from backend.brain import classify_user_intent, get_agent_stats, get_market_prediction
+from backend.brightdata_mcp import get_brightdata_market_context, get_brightdata_social_sentiment
+from backend.brightdata_utils import (
     get_token_news_serp,
     parse_serp_results,
     scrape_with_scraping_browser,
     scrape_with_web_unlocker,
 )
-from database import get_db, get_recent_prices
-from models import AlternativeData, CompetitivePricing, CorporateRisk, RegulatoryAlert
-from utils import extract_symbol, get_fear_and_greed, get_global_movers, mine_investor_behavior
+from backend.database import get_db, get_recent_prices
+from backend.models import AlternativeData, CompetitivePricing, CorporateRisk, RegulatoryAlert
+from backend.utils import extract_symbol, get_fear_and_greed, get_global_movers, mine_investor_behavior
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 load_dotenv()

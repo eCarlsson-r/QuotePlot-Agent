@@ -2,11 +2,11 @@ import asyncio
 from datetime import datetime, timedelta
 import json
 import time
-from utils import format_lucy_log, mine_investor_behavior, fetch_pyth_price, resolve_investor_flow
-from database import SessionLocal, db_save_behavior, db_save_price, get_recent_prices, save_prediction_to_db
+from backend.utils import format_lucy_log, mine_investor_behavior, fetch_pyth_price, fetch_pyth_prices, resolve_investor_flow
+from backend.database import SessionLocal, db_save_behavior, db_save_price, get_recent_prices, save_prediction_to_db
 from sqlalchemy import text as sql_text
-from models import TokenMap, Stock, PredictionLog, AlternativeData, RegulatoryAlert, CompetitivePricing, CorporateRisk
-from brain import get_market_prediction, get_agent_stats
+from backend.models import TokenMap, Stock, PredictionLog, AlternativeData, RegulatoryAlert, CompetitivePricing, CorporateRisk
+from backend.brain import get_market_prediction, get_agent_stats
 
 sync_progress_store = {}
 analysis_cooldowns = {}
@@ -27,14 +27,6 @@ async def check_for_data_gaps(symbol: str, threshold_hours: int = 2):
             return last_dt
     return None
 
-limit_gate = asyncio.Semaphore(10)
-async def fetch_pyth_price_safe(pyth_id):
-    async with limit_gate:
-        try:
-            return await fetch_pyth_price(pyth_id, timeout=10.0)
-        except Exception:
-            return None
-
 async def continuous_oracle_sync(ws_manager):
     global last_stats_update
     print("SYNC RUNNING...")
@@ -42,10 +34,12 @@ async def continuous_oracle_sync(ws_manager):
         with SessionLocal() as db:
             active_tokens = db.query(TokenMap).filter(TokenMap.is_active == True).all()
 
-            tasks = [fetch_pyth_price_safe(t.pyth_id) for t in active_tokens]
-            prices = await asyncio.gather(*tasks)
+            price_by_id = await fetch_pyth_prices(
+                [token.pyth_id for token in active_tokens]
+            )
 
-            for token, price in zip(active_tokens, prices):
+            for token in active_tokens:
+                price = price_by_id.get(token.pyth_id)
                 if price and price != "STALE":
                     db_save_price(token.symbol, price, datetime.now(), db)
                     data = await resolve_investor_flow(token, db)
@@ -182,8 +176,8 @@ async def update_social_sentiment_from_datasets():
     Triggers Bright Data Datasets Scraper to fetch Twitter sentiment
     data for our active tokens, and updates sentiment analysis.
     """
-    from brightdata_utils import trigger_dataset_scraper
-    from database import SessionLocal
+    from backend.brightdata_utils import trigger_dataset_scraper
+    from backend.database import SessionLocal
     with SessionLocal() as db:
         active_tokens = db.query(TokenMap).filter(TokenMap.is_active == True).all()
         for token in active_tokens:
@@ -199,7 +193,7 @@ async def continuous_regulatory_monitor(ws_manager):
     """
     Background job to pull new SEC/regulatory filings every hour and broadcast critical alerts.
     """
-    from brightdata_utils import scrape_sec_regulatory_filings
+    from backend.brightdata_utils import scrape_sec_regulatory_filings
     print("📢 [LUCY] Running regulatory filing monitor check...")
     filings = await scrape_sec_regulatory_filings()
 
@@ -230,7 +224,7 @@ async def continuous_pricing_monitor(ws_manager):
     """
     Background job to scrape and cache competitive GPU pricing indexes.
     """
-    from brightdata_utils import scrape_competitive_gpu_prices
+    from backend.brightdata_utils import scrape_competitive_gpu_prices
     print("💰 [LUCY] Scrape competitive pricing data...")
     prices = await scrape_competitive_gpu_prices()
 
@@ -252,7 +246,7 @@ async def continuous_alternative_data_sync(ws_manager):
     Also parses vendor/corporate risk indicators.
     """
     import random
-    from database import SessionLocal
+    from backend.database import SessionLocal
     print("📊 [LUCY] Aggregating alternative job openings and traffic signals...")
 
     # FIX: Moved corporate risk entries to a lookup dict to eliminate

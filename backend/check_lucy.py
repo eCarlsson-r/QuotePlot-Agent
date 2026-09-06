@@ -1,9 +1,9 @@
 import asyncio, time
-from utils import fetch_pyth_price
-from database import SessionLocal, engine
-from models import TokenMap, Stock, PredictionLog
-from routers import agent
-import models
+from backend.utils import fetch_pyth_price
+from backend.database import SessionLocal, engine
+from backend.models import TokenMap, Stock, PredictionLog
+from backend.routers import agent
+import backend.models as models
 
 # This command tells SQLAlchemy to create any tables defined in models.py 
 # that don't exist yet in the 'stocksdata' database.

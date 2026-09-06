@@ -26,7 +26,7 @@ import httpx
 from urllib.parse import quote_plus
 from sqlalchemy import func
 from datetime import datetime, timedelta
-from models import InvestorBehavior, Stock, TokenMap
+from backend.models import InvestorBehavior, Stock, TokenMap
 
 # ---------------------------------------------------------------------------
 # Session state
@@ -100,6 +100,11 @@ async def get_pyth_client() -> httpx.AsyncClient:
         _pyth_client = httpx.AsyncClient(timeout=15.0)
         print("🔗 [LUCY] Pyth client → direct (no proxy).")
     return _pyth_client
+
+
+def _pyth_headers() -> dict[str, str]:
+    api_key = os.getenv("PYTH_HERMES_API_KEY")
+    return {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +192,7 @@ async def get_fear_and_greed() -> dict:
 
     # --- Fallback: SERP API discovers the value from Google's knowledge panel ---
     try:
-        from brightdata_utils import get_market_trends_serp, parse_serp_results
+        from backend.brightdata_utils import get_market_trends_serp, parse_serp_results
 
         serp_data = await get_market_trends_serp("crypto fear and greed index today")
         parsed = parse_serp_results(serp_data)
@@ -266,7 +271,7 @@ async def get_global_movers() -> dict:
 
     # --- Fallback: SERP API discovers trending coins from Google ---
     try:
-        from brightdata_utils import get_market_trends_serp, parse_serp_results
+        from backend.brightdata_utils import get_market_trends_serp, parse_serp_results
 
         serp_data = await get_market_trends_serp("top crypto gainers today 24h")
         parsed = parse_serp_results(serp_data)
@@ -318,7 +323,7 @@ async def get_tokens() -> list | None:
     try:
         async with httpx.AsyncClient(timeout=20.0) as direct:
             pyth_res, cg_res = await asyncio.gather(
-                direct.get(pyth_url),
+                direct.get(pyth_url, headers=_pyth_headers()),
                 direct.get(cg_url),
             )
     except Exception as e:
@@ -415,8 +420,65 @@ def extract_symbol(db, text: str, session_id: str = "default_user") -> str | Non
 
 
 # ---------------------------------------------------------------------------
-# [ACCESS] Pyth price fetch — via BD-proxied client
+# [ACCESS] Pyth price fetch — via Hermes direct client
 # ---------------------------------------------------------------------------
+
+async def fetch_pyth_prices(price_ids: list[str], timeout: float = 10.0) -> dict[str, float | str]:
+    """Fetch the latest values for many Pyth feeds in one Hermes request."""
+    ids = [price_id for price_id in dict.fromkeys(price_ids) if price_id]
+    if not ids:
+        return {}
+
+    url = "https://hermes.pyth.network/v2/updates/price/latest"
+    params = [("ids[]", price_id) for price_id in ids]
+    client = await get_pyth_client()
+
+    for attempt in range(2):
+        try:
+            response = await client.get(
+                url,
+                params=params,
+                headers=_pyth_headers(),
+                timeout=timeout,
+            )
+            if response.status_code == 429 and attempt == 0:
+                retry_after = response.headers.get("retry-after", "2")
+                try:
+                    delay = min(max(float(retry_after), 1.0), 10.0)
+                except ValueError:
+                    delay = 2.0
+                await asyncio.sleep(delay)
+                continue
+            if response.status_code == 401:
+                print("❌ Pyth batch error 401: configure PYTH_HERMES_API_KEY for Hermes access.")
+                return {}
+            if response.status_code != 200:
+                print(f"❌ Pyth batch error {response.status_code}: {response.text[:120]}")
+                return {}
+
+            prices: dict[str, float | str] = {}
+            for item in response.json().get("parsed", []):
+                feed_id = item.get("id") or item.get("price_feed_id")
+                price = item.get("price", {})
+                if not feed_id or not price:
+                    continue
+                publish_time = int(price.get("publish_time", 0))
+                if int(time.time()) - publish_time > 86400:
+                    prices[feed_id] = "STALE"
+                    continue
+                raw_price = float(price.get("price", 0))
+                if raw_price:
+                    prices[feed_id] = raw_price * (10 ** int(price.get("expo", 0)))
+            return prices
+        except httpx.TimeoutException:
+            print("❌ Pyth batch request timed out.")
+            return {}
+        except httpx.HTTPError as error:
+            print(f"❌ Pyth batch request failed: {type(error).__name__}")
+            return {}
+
+    print("❌ Pyth batch request rate-limited after retry.")
+    return {}
 
 async def fetch_pyth_price(price_id: str, timeout: float = 10.0) -> float | str | None:
     """
@@ -430,7 +492,12 @@ async def fetch_pyth_price(price_id: str, timeout: float = 10.0) -> float | str 
 
     try:
         client   = await get_pyth_client()
-        response = await client.get(url, params=params, timeout=timeout)
+        response = await client.get(
+            url,
+            params=params,
+            headers=_pyth_headers(),
+            timeout=timeout,
+        )
         if response.status_code != 200:
             print(f"❌ Pyth Error {response.status_code}: {response.text[:120]}")
             return None
@@ -665,7 +732,7 @@ async def resolve_investor_flow(token, db) -> dict:
 
     # --- Tier 2: Scraping Browser (INTERACT) ---
     if token.address:
-        from brightdata_utils import scrape_with_scraping_browser
+        from backend.brightdata_utils import scrape_with_scraping_browser
 
         chain = token.chain or "ethereum"
         url   = dexscreener_pair_url(chain, token.address)

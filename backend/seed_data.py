@@ -3,9 +3,9 @@ import random
 import re
 from datetime import datetime
 
-from database import SessionLocal
-from models import InvestorBehavior, TokenMap
-from utils import get_client, get_tokens
+from backend.database import SessionLocal
+from backend.models import InvestorBehavior, TokenMap
+from backend.utils import get_client, get_tokens
 
 # ---------------------------------------------------------------------------
 # Fallback list — used only when Bright Data SERP is unavailable
@@ -39,7 +39,7 @@ async def discover_trending_symbols() -> set[str]:
     Hackathon judging — Discover pillar: the seed list is dynamic and sourced
     from live web data via Bright Data, not a static hardcoded allowlist.
     """
-    from brightdata_utils import get_market_trends_serp, parse_serp_results
+    from backend.brightdata_utils import get_market_trends_serp, parse_serp_results
 
     print("🔍 [Bright Data SERP] Discovering trending tokens for seeding...")
 

@@ -2,8 +2,8 @@ import joblib
 import numpy as np
 from pathlib import Path
 from sklearn.pipeline import Pipeline
-from models import InvestorBehavior, PredictionLog, Stock
-from lucy import text as lucy_text  # Your custom legacy logic
+from backend.models import InvestorBehavior, PredictionLog, Stock
+from backend.lucy import text as lucy_text  # Your custom legacy logic
 
 # Load the model once
 BASE_DIR = Path(__file__).resolve().parent
@@ -198,7 +198,7 @@ def analyze_divergence(db, symbol: str):
     return "Neutral: Market noise."
 
 
-from models import AlternativeData, RegulatoryAlert, CompetitivePricing, CorporateRisk, SectorIntelligence
+from backend.models import AlternativeData, RegulatoryAlert, CompetitivePricing, CorporateRisk, SectorIntelligence
 
 def generate_earnings_intelligence(symbol: str, db) -> dict:
     """

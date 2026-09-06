@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, sessionmaker
 import os
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
-from models import InvestorBehavior, PredictionLog, Stock
+from backend.models import InvestorBehavior, PredictionLog, Stock
 
 load_dotenv()
 

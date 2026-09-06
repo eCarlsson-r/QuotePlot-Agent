@@ -66,7 +66,7 @@ async def _invoke_mcp_tool(tool_name: str, arguments: dict) -> str:
 
 
 async def _serp_macro_fallback(query_topic: str) -> str:
-    from brightdata_utils import get_market_trends_serp, parse_serp_results
+    from backend.brightdata_utils import get_market_trends_serp, parse_serp_results
 
     serp_data = await get_market_trends_serp(
         f"{query_topic} crypto market macroeconomic context"

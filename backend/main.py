@@ -36,11 +36,10 @@ def _ensure_playwright_browsers():
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from routers import market, agent, pages
+from backend.routers import market, agent
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from tasks import (
+from backend.tasks import (
     continuous_oracle_sync, 
     evaluate_predictions_task, 
     update_social_sentiment_from_datasets,
@@ -151,8 +150,6 @@ async def lifespan(app: FastAPI):
     print("🛑 [LUCY] Shutting down scheduler...")
     scheduler.shutdown()
 
-_BASE_DIR = Path(__file__).resolve().parent
-
 app = FastAPI(title="Lucy Agent Web3", lifespan=lifespan)
 
 # --- 3. Middleware & Routers (STILL ACTIVE!) ---
@@ -166,10 +163,7 @@ if _cors_origins:
         allow_headers=["*"],
     )
 
-app.mount("/static", StaticFiles(directory=str(_BASE_DIR / "static")), name="static")
-
-# UI (Jinja2 + HTMX) and JSON API
-app.include_router(pages.router)
+# JSON API
 app.include_router(market.router)
 app.include_router(agent.router)
 
