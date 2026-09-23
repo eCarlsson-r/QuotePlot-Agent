@@ -1,0 +1,36 @@
+:host { display: block; min-height: 100vh; }
+
+.dashboard-shell {
+	min-height: 100vh;
+	padding: 1rem clamp(1rem, 3vw, 2.5rem) 3rem;
+	background: #020617;
+	color: #e2e8f0;
+}
+
+.dashboard-header {
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	max-width: 1440px;
+	margin: 0 auto 1rem;
+	padding: .75rem 0 1rem;
+	border-bottom: 1px solid #1e293b;
+}
+
+.brand-lockup { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.brand-mark { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 1px solid #2563eb; border-radius: .6rem; color: #60a5fa; font: 700 .8rem ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+.brand-kicker { margin: 0; color: #60a5fa; font: 700 .65rem ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; text-transform: uppercase; }
+h1 { margin: .2rem 0 0; color: #f8fafc; font-size: clamp(1.05rem, 2vw, 1.5rem); font-weight: 700; }
+.dashboard-grid { display: grid; grid-template-columns: minmax(15rem, 1fr) minmax(30rem, 2fr) minmax(19rem, 1.05fr); gap: 1rem; max-width: 1600px; margin: 0 auto; align-items: start; }
+.market-column, .management-column { min-width: 0; }
+
+@media (max-width: 1180px) {
+	.dashboard-grid { grid-template-columns: minmax(14rem, 1fr) minmax(26rem, 1.7fr); }
+	.management-column { grid-column: 1 / -1; }
+}
+
+@media (max-width: 600px) {
+	.dashboard-header { align-items: flex-start; flex-direction: column; }
+	.dashboard-grid { grid-template-columns: 1fr; }
+	.management-column { grid-column: auto; }
+}

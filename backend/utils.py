@@ -301,6 +301,38 @@ async def get_global_movers() -> dict:
 # [ACCESS + EXTRACT] Token discovery — Pyth + CoinGecko via BD client
 # ---------------------------------------------------------------------------
 
+def _select_coingecko_coin(symbol: str, candidates: list[dict]) -> dict | None:
+    """Pick the CoinGecko identity for one ticker, avoiding ETH collisions."""
+    symbol = symbol.upper()
+    if symbol == "ETH":
+        # Native Ether's CoinGecko ID is "ethereum", not "eth". Do not let a
+        # different asset with an ETH ticker win when the canonical row exists.
+        return next((coin for coin in candidates if coin.get("id") == "ethereum"), None)
+
+    selected = candidates[0] if candidates else None
+    for coin in candidates[1:]:
+        if selected is None:
+            selected = coin
+            continue
+        current_id = selected.get("id", "")
+        new_id = coin.get("id", "")
+        if new_id == symbol.lower() or (
+            len(new_id) < len(current_id) and symbol.lower() in new_id
+        ):
+            selected = coin
+    return selected
+
+
+def _token_chain_and_address(symbol: str, coingecko_coin: dict | None) -> tuple[str | None, str | None]:
+    """Resolve DEX chain/address fields, treating native ETH as addressless."""
+    if symbol.upper() == "ETH" and coingecko_coin and coingecko_coin.get("id") == "ethereum":
+        return "ethereum", None
+    platforms = (coingecko_coin or {}).get("platforms") or {}
+    if platforms:
+        return pick_contract_from_platforms(platforms)
+    return None, None
+
+
 async def get_tokens() -> list | None:
     """
     ACCESS + EXTRACT: Fetches Pyth price feeds and CoinGecko coin list in
@@ -340,26 +372,13 @@ async def get_tokens() -> list | None:
     pyth_feeds = pyth_res.json()
     cg_map     = cg_res.json()
 
-    # FIX 1: CoinGecko has thousands of coins sharing the same ticker symbol.
-    # A plain dict keyed by symbol picks a random coin (last write wins) —
-    # that's why BTC was showing chain=osmosis and ETH chain=solana.
-    # Build a priority lookup: prefer coins whose id IS the lowercase symbol
-    # (e.g. id="bitcoin" for BTC, id="ethereum" for ETH) over altcoins that
-    # happen to share the ticker. Falls back to first match if no canonical id.
-    cg_by_symbol: dict[str, dict] = {}
+    # CoinGecko has many assets with the same ticker. Keep candidates grouped
+    # by ticker, then select an identity deliberately for each Pyth feed.
+    cg_by_symbol: dict[str, list[dict]] = {}
     for item in cg_map:
-        sym = item["symbol"].upper()
-        if sym not in cg_by_symbol:
-            cg_by_symbol[sym] = item          # first seen
-        else:
-            # Prefer the entry whose id is the canonical lowercase symbol
-            # e.g. "bitcoin" beats "wrapped-bitcoin" for BTC
-            current_id = cg_by_symbol[sym]["id"]
-            new_id     = item["id"]
-            if new_id == sym.lower() or (
-                len(new_id) < len(current_id) and sym.lower() in new_id
-            ):
-                cg_by_symbol[sym] = item
+        sym = item.get("symbol", "").upper()
+        if sym:
+            cg_by_symbol.setdefault(sym, []).append(item)
 
     # FIX 2: Pyth has multiple feeds per symbol (spot, TWAP, wrapped variants).
     # De-duplicate by symbol, keeping only the first feed seen (which Pyth
@@ -374,11 +393,8 @@ async def get_tokens() -> list | None:
             continue                          # skip empty or duplicate symbols
         seen_symbols.add(symbol)
 
-        cg_data = cg_by_symbol.get(symbol)
-
-        chain, address = None, None
-        if cg_data and cg_data.get("platforms"):
-            chain, address = pick_contract_from_platforms(cg_data["platforms"])
+        cg_data = _select_coingecko_coin(symbol, cg_by_symbol.get(symbol, []))
+        chain, address = _token_chain_and_address(symbol, cg_data)
 
         token_list.append({
             "symbol":       symbol,

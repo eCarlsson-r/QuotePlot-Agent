@@ -1,0 +1,29 @@
+<mat-card class="terminal-card creation-card">
+  <div class="creation-toolbar">
+    <div class="section-heading">
+      <div>
+        <span class="section-kicker">Contract factory</span>
+        <h2>Deploy asset</h2>
+      </div>
+      <span class="section-count" *ngIf="canCreateNewToken()">SEPOLIA READY</span>
+    </div>
+    <div class="creation-actions">
+    <span *ngIf="canCreateNewToken()">
+      <button
+        mat-stroked-button
+        class="deploy-button"
+        (click)="openNewTokenDialog()"
+      >+ New Token</button>
+    </span>
+    <mat-form-field *ngIf="seedTokenFactoryService.isShowFilter()" appearance="outline" class="token-filter">
+      <mat-label>Filter</mat-label>
+      <input matInput (keyup)="applyFilter($event)" #tokenFilter>
+    </mat-form-field>
+    </div>
+  </div>
+  <mat-progress-bar
+      *ngIf="seedTokenFactoryService.isShowProgressBar()"
+      mode="determinate"
+      [value]="seedTokenFactoryService.progression()"
+    ></mat-progress-bar>
+</mat-card>

@@ -1,0 +1,18 @@
+.terminal-card { margin: 1rem 0; padding: 1rem; border: 1px solid #1e293b; border-radius: .75rem; background: #0f172a; color: #cbd5e1; box-shadow: 0 20px 60px rgba(0, 0, 0, .2); }
+.creation-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.section-heading { display: flex; align-items: center; gap: 1rem; }
+.section-kicker { color: #60a5fa; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; }
+h2 { margin: .2rem 0 0; color: #f8fafc; font-size: 1rem; text-transform: uppercase; }
+.section-count { color: #34d399; font-size: .62rem; font-weight: 700; }
+.creation-actions { display: flex; align-items: center; gap: .75rem; }
+.deploy-button { border-color: #34d399; color: #34d399; font-size: .68rem; }
+.deploy-button:hover { background: rgba(52, 211, 153, .12); }
+.token-filter { width: 9rem; margin: 0; }
+:host ::ng-deep .creation-card .mat-mdc-form-field { --mdc-outlined-text-field-outline-color: #334155; --mdc-outlined-text-field-hover-outline-color: #60a5fa; --mdc-outlined-text-field-focus-outline-color: #2563eb; --mdc-outlined-text-field-label-text-color: #64748b; --mdc-outlined-text-field-input-text-color: #cbd5e1; }
+:host ::ng-deep .creation-card .mat-mdc-progress-bar { margin-top: .75rem; --mdc-linear-progress-active-indicator-color: #2563eb; --mdc-linear-progress-track-color: #1e293b; }
+
+@media (max-width: 650px) {
+	.creation-toolbar { align-items: stretch; flex-direction: column; }
+	.creation-actions { justify-content: space-between; }
+	.token-filter { flex: 1; }
+}

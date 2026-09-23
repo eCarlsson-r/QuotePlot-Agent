@@ -1,0 +1,16 @@
+<h1 mat-dialog-title class="dialog-title">Deploy New Asset</h1>
+<p class="dialog-kicker">SEPOLIA CONTRACT FACTORY</p>
+<div mat-dialog-content class="dialog-content">
+  <mat-form-field appearance="outline">
+    <mat-label>Name</mat-label>
+    <input matInput [(ngModel)]="data.name">
+  </mat-form-field>
+  <mat-form-field appearance="outline">
+    <mat-label>Symbol</mat-label>
+    <input matInput [(ngModel)]="data.symbol">
+  </mat-form-field>
+</div>
+<div mat-dialog-actions class="dialog-actions">
+  <button mat-stroked-button class="dialog-create" (click)="onCreate()">Deploy</button>
+  <button mat-button class="dialog-cancel" (click)="onCancel()">Cancel</button>
+</div>

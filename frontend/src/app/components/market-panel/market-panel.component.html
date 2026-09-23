@@ -1,0 +1,39 @@
+<section class="market-panel" aria-labelledby="market-heading">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Web3 analyst</p>
+      <h2 id="market-heading">Market pulse</h2>
+      <p class="panel-caption">Live assets and Lucy divergence signals</p>
+    </div>
+    <span class="status" [class.status-offline]="!!errorMessage">
+      <span class="status-dot"></span>{{ errorMessage ? 'Offline' : 'Live API' }}
+    </span>
+  </div>
+
+  <p *ngIf="isLoading" class="state">Loading market data...</p>
+  <p *ngIf="errorMessage" class="state state-error">{{ errorMessage }}</p>
+
+  <ng-container *ngIf="!isLoading && !errorMessage">
+    <div class="ticker-list" role="list" aria-label="Market tickers">
+      <button
+        *ngFor="let symbol of symbols; trackBy: trackSymbol"
+        type="button"
+        class="ticker"
+        [class.ticker-selected]="symbol === selectedSymbol"
+        (click)="selectSymbol(symbol)"
+      >
+        <span class="ticker-symbol">{{ symbol }}</span>
+        <span class="ticker-price">{{ tickers[symbol].price | number: '1.2-6' }}</span>
+        <span [class.change-positive]="tickers[symbol].change >= 0"
+              [class.change-negative]="tickers[symbol].change < 0">
+          {{ tickers[symbol].change | number: '1.2-2' }}%
+        </span>
+      </button>
+    </div>
+
+    <div class="insight" *ngIf="insight">
+      <span class="insight-symbol">{{ insight.symbol }} / SIGNAL</span>
+      <p>{{ insight.insight }}</p>
+    </div>
+  </ng-container>
+</section>

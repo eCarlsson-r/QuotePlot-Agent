@@ -1,0 +1,25 @@
+<main class="dashboard-shell">
+	<header class="dashboard-header">
+		<div class="brand-lockup">
+			<div class="brand-mark">QP</div>
+			<div>
+				<p class="brand-kicker">QuotePlot Agent</p>
+				<h1>Market intelligence terminal</h1>
+			</div>
+		</div>
+		<app-connection-bar></app-connection-bar>
+	</header>
+
+	<section class="dashboard-grid">
+		<div class="market-column">
+			<app-market-panel></app-market-panel>
+		</div>
+		<div class="management-column">
+			<app-new-token></app-new-token>
+			<app-token-list></app-token-list>
+			<app-event-list></app-event-list>
+		</div>
+		<app-lucy-panel></app-lucy-panel>
+	</section>
+</main>
+<router-outlet />

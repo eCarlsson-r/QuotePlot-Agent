@@ -101,9 +101,36 @@ async def discover_trending_symbols() -> set[str]:
 # Token seeder
 # ---------------------------------------------------------------------------
 
+def _update_existing_token_mapping(existing: TokenMap, data: dict) -> bool:
+    """Refresh a TokenMap row without preserving stale native ETH contracts."""
+    symbol = data.get("symbol", "").upper()
+    native_ethereum = symbol == "ETH" and data.get("coingecko_id") == "ethereum"
+    changed = False
+    for field in ("coingecko_id", "pyth_id", "address", "chain"):
+        if native_ethereum and field == "address":
+            new_value = None
+        elif native_ethereum and field == "chain":
+            new_value = "ethereum"
+        else:
+            new_value = data.get("coingecko_id") if field == "coingecko_id" else data.get(field)
+
+        # Preserve existing behavior for other tokens: absent feed data does
+        # not erase their current values. Canonical native ETH is the specific
+        # exception because a stale ticker-collision contract is unsafe.
+        should_clear = native_ethereum and field == "address"
+        if ((new_value and getattr(existing, field) != new_value) or
+                (should_clear and getattr(existing, field) is not None)):
+            setattr(existing, field, new_value)
+            changed = True
+    return changed
+
+
 async def seed_web3_tokens():
     # [DISCOVER] Live trending symbols from Bright Data SERP
     seed_symbols = await discover_trending_symbols()
+    # Keep the canonical native ETH identity maintained even when it is not
+    # among the current SERP trends.
+    seed_symbols.add("ETH")
 
     print("\n🌐 Fetching token feeds from Pyth + CoinGecko (direct)...")
     raw_token_data = await get_tokens()
@@ -148,12 +175,7 @@ async def seed_web3_tokens():
                 added += 1
                 print(f"  ✅ Added   {sym:<8} chain={data.get('chain') or 'n/a'}")
             else:
-                changed = False
-                for field in ("coingecko_id", "pyth_id", "address", "chain"):
-                    new_val = cg_id if field == "coingecko_id" else data.get(field)
-                    if new_val and getattr(existing, field) != new_val:
-                        setattr(existing, field, new_val)
-                        changed = True
+                changed = _update_existing_token_mapping(existing, data)
                 if changed:
                     updated += 1
                     print(f"  🔄 Updated {sym:<8} chain={existing.chain or 'n/a'}")

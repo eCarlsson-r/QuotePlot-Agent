@@ -1,0 +1,28 @@
+:host { display: block; }
+
+.market-panel { min-height: 28rem; padding: 1.25rem; border: 1px solid #1e293b; border-radius: .75rem; background: #0f172a; box-shadow: 0 20px 60px rgba(0, 0, 0, .24); }
+
+.panel-heading, .ticker, .insight { display: flex; align-items: center; }
+.panel-heading { justify-content: space-between; gap: 1rem; }
+.eyebrow, h2 { margin: 0; }
+.eyebrow { color: #60a5fa; font-size: .65rem; letter-spacing: .14em; text-transform: uppercase; }
+h2 { color: #f8fafc; font-size: 1.2rem; }
+.panel-caption { margin: .35rem 0 0; color: #64748b; font-size: .68rem; }
+.status { display: inline-flex; align-items: center; gap: .4rem; color: #34d399; font-size: .65rem; font-weight: 700; text-transform: uppercase; }
+.status-dot { width: .4rem; height: .4rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.status-offline, .state-error { color: #f87171; }
+.state { margin: 1rem 0 0; color: #94a3b8; font-size: .75rem; }
+.ticker-list { display: grid; grid-template-columns: 1fr; gap: .35rem; margin-top: 1.25rem; max-height: 22rem; overflow-y: auto; }
+.ticker { justify-content: space-between; gap: .5rem; padding: .7rem .8rem; border: 1px solid transparent; border-bottom-color: #1e293b; background: rgba(2, 6, 23, .4); color: #cbd5e1; cursor: pointer; font: inherit; font-size: .75rem; text-align: left; }
+.ticker:hover, .ticker-selected { border-color: rgba(59, 130, 246, .55); background: rgba(30, 64, 175, .24); }
+.ticker-symbol, .insight-symbol { color: #f8fafc; font-weight: 700; }
+.ticker-price { color: #cbd5e1; }
+.change-positive { color: #34d399; }
+.change-negative { color: #f87171; }
+.insight { align-items: flex-start; gap: .75rem; margin-top: 1rem; padding: .9rem; border: 1px solid #1e40af; border-left: 3px solid #3b82f6; background: rgba(15, 23, 42, .8); }
+.insight p { margin: 0; color: #cbd5e1; font-size: .72rem; line-height: 1.55; }
+.insight-symbol { min-width: 5.5rem; color: #93c5fd; font-size: .65rem; }
+
+@media (max-width: 600px) {
+  .ticker-list { grid-template-columns: 1fr; }
+}

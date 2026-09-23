@@ -1,0 +1,11 @@
+.dialog-title { margin-bottom: .25rem; color: #f8fafc; font: 700 1rem ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; }
+.dialog-kicker { margin: 0 0 1rem; color: #60a5fa; font: 700 .62rem ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; }
+.dialog-content { display: grid; gap: .75rem; min-width: min(25rem, 70vw); padding-top: .5rem !important; }
+.dialog-content mat-form-field { width: 100%; }
+.dialog-actions { gap: .5rem; padding: .75rem 0 0; }
+.dialog-create { border-color: #34d399; color: #34d399; font-size: .68rem; }
+.dialog-create:hover { background: rgba(52, 211, 153, .12); }
+.dialog-cancel { color: #94a3b8; font-size: .68rem; }
+:host ::ng-deep .mat-mdc-dialog-surface { border: 1px solid #1e293b; border-radius: .75rem; background: #0f172a; color: #cbd5e1; box-shadow: 0 20px 60px rgba(0, 0, 0, .45); }
+:host ::ng-deep .mat-mdc-form-field { --mdc-outlined-text-field-outline-color: #334155; --mdc-outlined-text-field-hover-outline-color: #60a5fa; --mdc-outlined-text-field-focus-outline-color: #2563eb; --mdc-outlined-text-field-label-text-color: #64748b; --mdc-outlined-text-field-input-text-color: #cbd5e1; --mdc-outlined-text-field-caret-color: #60a5fa; }
+:host ::ng-deep .mat-mdc-form-field .mdc-text-field--outlined { background: #020617; }

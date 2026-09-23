@@ -1,0 +1,30 @@
+<mat-toolbar class="connection-toolbar">
+  <span class="connection-label">WALLET LINK</span>
+  <span class="connection-network">{{ getConnectionString() }}</span>
+  <span *ngIf="providerService.blockNumber">
+    <span class="block-label">BLOCK {{ providerService.blockNumber }}</span>
+  </span>
+  <span class="spacer"></span>
+  <span *ngIf="isMetaMaskConnected; then metamaskThen else metamaskElse"></span>
+  <ng-template #metamaskThen>
+    <button class="wallet-button connected" mat-icon-button (click)="disconnectMetaMask()" aria-label="Disconnect MetaMask">
+      <mat-icon svgIcon="metamask"></mat-icon>
+    </button>
+  </ng-template>
+  <ng-template #metamaskElse>
+    <button class="wallet-button" mat-icon-button (click)="connectMetaMask()" aria-label="Connect MetaMask">
+      <mat-icon svgIcon="metamask"></mat-icon>
+    </button>
+  </ng-template>
+  <span *ngIf="isWalletConnectConnected; then walletConnectThen else walletConnectElse"></span>
+  <ng-template #walletConnectThen>
+    <button class="wallet-button connected" mat-icon-button (click)="disconnectWalletConnect()" aria-label="Disconnect WalletConnect">
+      <mat-icon svgIcon="walletconnect"></mat-icon>
+    </button>
+  </ng-template>
+  <ng-template #walletConnectElse>
+    <button class="wallet-button" mat-icon-button (click)="connectWalletConnect()" aria-label="Connect WalletConnect">
+      <mat-icon svgIcon="walletconnect"></mat-icon>
+    </button>
+  </ng-template>
+</mat-toolbar>

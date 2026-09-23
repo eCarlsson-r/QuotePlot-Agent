@@ -1,0 +1,41 @@
+<section class="lucy-panel" aria-labelledby="lucy-heading">
+  <div class="panel-heading">
+    <div>
+      <p class="eyebrow">Agent console</p>
+      <h2 id="lucy-heading">Ask Lucy</h2>
+    </div>
+    <span class="connection" [class.connection-offline]="!isConnected">
+      {{ isConnected ? 'Live' : 'Offline' }}
+    </span>
+  </div>
+
+  <div class="messages" aria-live="polite">
+    <p *ngIf="messages.length === 0" class="empty-message">
+      Ask about a token, market conditions, or recent movement.
+    </p>
+    <article *ngFor="let message of messages" [class.user-message]="message.role === 'user'">
+      <strong>{{ message.role === 'user' ? 'You' : 'Lucy' }}</strong>
+      <p>{{ message.content }}</p>
+    </article>
+  </div>
+
+  <p *ngIf="isSending" class="state">Lucy is thinking...</p>
+  <p *ngIf="errorMessage" class="state state-error">{{ errorMessage }}</p>
+
+  <form (ngSubmit)="send()" class="chat-form">
+    <label for="lucy-prompt">Message</label>
+    <textarea
+      id="lucy-prompt"
+      name="prompt"
+      [(ngModel)]="prompt"
+      rows="2"
+      placeholder="What is moving BTC today?"
+    ></textarea>
+    <button type="submit" [disabled]="isSending || !prompt.trim()">Send</button>
+  </form>
+
+  <div class="thoughts" *ngIf="thoughts.length > 0">
+    <span>Live thought stream</span>
+    <p *ngFor="let thought of thoughts">{{ thought }}</p>
+  </div>
+</section>

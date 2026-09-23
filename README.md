@@ -42,6 +42,9 @@ backend/
   database.py             # SQLAlchemy configuration and persistence helpers
   tasks.py                # Scheduled oracle and monitoring jobs
   utils.py                # Market providers and data utilities
+  blockchain/
+    ethereum.py           # Read-only Ethereum JSON-RPC adapter
+    token_intelligence.py # TokenMap symbol → Ethereum ERC-20 metadata
   lucy/                   # Legacy text-processing helpers used by the brain
 frontend/
   src/app/                # Angular components and services
@@ -77,11 +80,41 @@ GEMINI_API_KEY=...
 BRIGHTDATA_API_KEY=...
 BRIGHTDATA_CUSTOMER_ID=...
 PYTH_HERMES_API_KEY=...
+ETH_RPC_URL=https://your-ethereum-rpc-provider/...
 DB_URL=mysql+pymysql://...
 FRONTEND_URL=http://localhost:4200
 ```
 
 `PYTH_HERMES_API_KEY` is needed when Hermes returns HTTP 401. The backend batches Pyth requests and retries rate-limited HTTP 429 responses, but valid provider credentials are still required.
+
+`ETH_RPC_URL` is required only when using the read-only Ethereum adapter. Keep the real endpoint in `.env`; `.env` files are ignored by Git. The adapter uses the existing `httpx` and `python-dotenv` dependencies.
+
+## Read-Only Ethereum Data
+
+The backend has a narrow, internal Ethereum read path:
+
+```text
+TokenMap symbol/address/chain
+        ↓
+backend.blockchain.token_intelligence
+        ↓
+backend.blockchain.ethereum
+        ↓
+ETH_RPC_URL → Ethereum JSON-RPC
+```
+
+`get_token_on_chain_intelligence(db, symbol)` resolves an active TokenMap row, verifies that it is an Ethereum mapping, and returns the mapped identity with the latest block and ERC-20 `name`, `symbol`, and `decimals`. The adapter supports `eth_blockNumber`, `eth_getBalance`, and `eth_call`. This is an internal Python capability; it is not exposed as an HTTP endpoint or Lucy tool.
+
+Native ETH has no ERC-20 contract address, so the metadata lookup reports that case instead of inventing an address. The token seeder prefers CoinGecko's canonical `ethereum` identity and clears a stale contract address when refreshing native ETH. Wrapped Ether (WETH) is a separate ERC-20 token and should be represented by its own TokenMap entry.
+
+To run the deterministic blockchain and token mapping tests from the repository root:
+
+```bash
+python3 -m unittest \
+  backend.test_token_identity \
+  backend.blockchain.test_ethereum \
+  backend.blockchain.test_token_intelligence -v
+```
 
 ## Install Dependencies
 
@@ -186,3 +219,5 @@ Lucy:
 - `GET /api/agent/brightdata-status`
 - `GET /api/agent/token-stats/{symbol}`
 - `WebSocket /ws/thoughts`
+
+Ethereum blockchain reads are not part of the HTTP API or Lucy's available tools yet.

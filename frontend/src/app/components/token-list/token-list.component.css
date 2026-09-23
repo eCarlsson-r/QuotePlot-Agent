@@ -1,0 +1,16 @@
+.terminal-card { margin: 1rem 0; padding: 1rem; border: 1px solid #1e293b; border-radius: .75rem; background: #0f172a; color: #cbd5e1; box-shadow: 0 20px 60px rgba(0, 0, 0, .2); }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+.section-kicker { color: #60a5fa; font-size: .62rem; letter-spacing: .14em; text-transform: uppercase; }
+h2 { margin: .2rem 0 0; color: #f8fafc; font-size: 1rem; text-transform: uppercase; }
+.section-count { color: #34d399; font-size: .62rem; font-weight: 700; }
+.table-scroll { overflow-x: auto; }
+.terminal-table { min-width: 42rem; background: transparent; color: #cbd5e1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .72rem; }
+:host ::ng-deep .terminal-table .mat-mdc-header-cell { border-bottom-color: #334155; color: #64748b; font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; }
+:host ::ng-deep .terminal-table .mat-mdc-cell { border-bottom-color: #1e293b; color: #cbd5e1; }
+:host ::ng-deep .terminal-table .mat-mdc-row:hover { background: rgba(30, 64, 175, .2); }
+.copy-button { width: 1.8rem; height: 1.8rem; color: #64748b; }
+.copy-button:hover { color: #60a5fa; }
+.action-button { border-color: #2563eb; color: #60a5fa; font-size: .62rem; }
+.action-button:hover { background: rgba(37, 99, 235, .2); }
+:host ::ng-deep .terminal-card .mat-mdc-paginator { margin-top: .5rem; border-top: 1px solid #1e293b; background: transparent; color: #64748b; }
+:host ::ng-deep .terminal-card .mat-mdc-paginator-container { min-height: 2.75rem; }
