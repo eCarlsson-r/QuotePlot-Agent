@@ -10,6 +10,7 @@ Bright Data integration map (Discover → Access → Extract → Interact):
 """
 
 import asyncio
+import json
 import os
 import sys
 import time
@@ -31,7 +32,11 @@ from backend.brightdata_utils import (
     scrape_with_scraping_browser,
     scrape_with_web_unlocker,
 )
-from backend.database import get_db, get_recent_prices
+from backend.database import SessionLocal, get_db, get_recent_prices
+from backend.blockchain.token_intelligence import (
+    TokenOnChainLookupError,
+    get_token_on_chain_intelligence,
+)
 from backend.models import AlternativeData, CompetitivePricing, CorporateRisk, RegulatoryAlert
 from backend.utils import extract_symbol, get_fear_and_greed, get_global_movers, mine_investor_behavior
 
@@ -123,8 +128,35 @@ LUCY_SYSTEM_INSTRUCTION = (
     "and pricing indicators for GORK via SERP API. Social sentiment is holding Bullish at 65%.' "
     "Never say you only have vague sentiment if Bright Data context was provided in the prompt. "
     "Use brightdata_search_web, brightdata_web_unlocker_scrape, and brightdata_scrape_dynamic_page "
-    "when the user asks for real-time or dynamic web information."
+    "when the user asks for real-time or dynamic web information. For token contract or on-chain "
+    "questions, call get_token_onchain_data with the ticker symbol; never guess contract addresses. "
+    "Treat every tool result as evidence, distinguish unavailable data from a negative signal, and "
+    "do not give trading or transaction instructions."
 )
+
+
+def get_token_onchain_data(symbol: str) -> str:
+    """Gemini read-only tool: resolve a ticker through TokenMap before Ethereum RPC."""
+    async def _lookup() -> dict:
+        db = SessionLocal()
+        try:
+            data = await get_token_on_chain_intelligence(db, symbol)
+            return {"status": "available", "source": "Ethereum JSON-RPC", "data": data}
+        except TokenOnChainLookupError as exc:
+            return {"status": "unavailable", "source": "TokenMap / Ethereum JSON-RPC",
+                    "code": exc.code, "message": str(exc)}
+        except Exception:
+            return {"status": "unavailable", "source": "Ethereum JSON-RPC",
+                    "code": "rpc_unavailable", "message": "On-chain data is temporarily unavailable."}
+        finally:
+            db.close()
+    try:
+        # Gemini calls synchronous function tools from its worker thread, so run
+        # this async read directly there instead of queuing onto the same pool.
+        return json.dumps(asyncio.run(_lookup()), default=str)
+    except Exception:
+        return json.dumps({"status": "unavailable", "source": "Ethereum JSON-RPC",
+                           "code": "rpc_unavailable", "message": "On-chain data is temporarily unavailable."})
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +192,7 @@ class LucyAgent:
                         brightdata_search_web,
                         brightdata_web_unlocker_scrape,
                         brightdata_scrape_dynamic_page,
+                        get_token_onchain_data,
                     ],
                 ),
             )
@@ -285,6 +318,20 @@ def _with_brightdata_prefix(reply: str, sources: list[str]) -> str:
     return f"[Bright Data Web Pipeline Active] Pulled live context via {', '.join(sources)}. {reply}"
 
 
+def _build_investigation_evidence(prices, sent, conf, news_context, social_sentiment, macro_context, onchain):
+    """Keep source availability explicit so missing data is not treated as a signal."""
+    return [
+        {"source": "Market history", "status": "available" if prices else "unavailable",
+         "summary": f"{len(prices)} recent price observations" if prices else "No recent price history."},
+        {"source": "ML prediction", "status": "available" if prices and conf > 0 else "insufficient",
+         "summary": f"{sent} · {conf:.0%} confidence" if prices and conf > 0 else "Insufficient price/behavior data for a reliable prediction."},
+        {"source": "Web research", "status": "available" if news_context or social_sentiment or macro_context else "unavailable",
+         "summary": "; ".join([x for x in (news_context.strip(), social_sentiment[:180], macro_context[:180]) if x]) or "No live web evidence returned."},
+        {"source": "Ethereum on-chain", "status": onchain.get("status", "unavailable"),
+         "summary": json.dumps(onchain.get("data", onchain.get("message", "On-chain data unavailable.")), default=str)},
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Request / Response models
 # ---------------------------------------------------------------------------
@@ -317,23 +364,7 @@ async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
             return {"reply": "I couldn't identify a token — try mentioning BTC, ETH, or SOL!"}
 
         prices = get_recent_prices(symbol, db)
-        if not prices:
-            return {
-                "reply":           f"I see you're asking about {symbol}, but I don't have enough data in my memory yet!",
-                "prediction_type": "Neutral",
-                "probability":     0.5,
-            }
-
-        behavior_context = mine_investor_behavior(db, symbol)
-
-        # FIX: was an early-return bare string → now a proper dict so the
-        # client always receives a consistent reply/prediction_type/probability shape.
-        if behavior_context == "No recent whale activity detected (Insufficient Data)":
-            return {
-                "reply":           f"⚠️ {symbol}: {behavior_context} — Lucy needs more on-chain data before she can call this one.",
-                "prediction_type": "Neutral",
-                "probability":     0.5,
-            }
+        behavior_context = mine_investor_behavior(db, symbol) if prices else "Insufficient data: no recent market prices."
 
         # [DISCOVER] All three Bright Data calls + get_market_prediction run in
         # parallel via gather — previously sequential, adding 3-9s of dead wait
@@ -343,13 +374,17 @@ async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
             news_data,
             social_sentiment,
             macro_context,
-            (sent, conf, insight),
+            onchain_result,
+            prediction,
         ) = await asyncio.gather(
             get_token_news_serp(symbol),                              # SERP news
             get_brightdata_social_sentiment(symbol),                  # MCP social
             get_brightdata_market_context(f"{symbol} macro outlook"), # MCP macro
-            asyncio.to_thread(get_market_prediction, db, prices, symbol, behavior_context),
+            asyncio.to_thread(get_token_onchain_data, symbol),
+            asyncio.to_thread(get_market_prediction, db, prices, symbol, behavior_context)
+            if prices else asyncio.sleep(0, result=("Neutral", 0.0, "Insufficient market price history for ML prediction.")),
         )
+        sent, conf, insight = prediction
 
         parsed_news  = parse_serp_results(news_data)
         news_context = ""
@@ -364,6 +399,14 @@ async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
 
         # FIX: macro_context now correctly forwarded so the source badge fires
         sources = _brightdata_sources_used(news_context, social_sentiment, macro_context)
+        try:
+            onchain = json.loads(onchain_result)
+        except (TypeError, ValueError):
+            onchain = {"status": "unavailable", "source": "Ethereum JSON-RPC", "message": "On-chain data could not be parsed."}
+        evidence = _build_investigation_evidence(
+            prices, sent, conf, news_context, social_sentiment, macro_context, onchain
+        )
+        insight += "\nStructured investigation evidence: " + json.dumps(evidence, default=str)
         if sources:
             insight += (
                 f"\nBright Data live feeds active ({', '.join(sources)}). "
@@ -391,6 +434,7 @@ async def chat_agent_reply(request: ChatRequest, db: Session = Depends(get_db)):
             "prediction_type": sent,
             "probability":     conf,
             "insight_text":    insight,
+            "evidence":        evidence,
         }
 
     # ------------------------------------------------------------------

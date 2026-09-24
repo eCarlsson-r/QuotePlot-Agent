@@ -2,7 +2,7 @@ import { afterNextRender, Component, EventEmitter, OnDestroy, OnInit, Output } f
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
-import { LucyService } from '../../services/lucy.service';
+import { LucyEvidence, LucyReply, LucyService } from '../../services/lucy.service';
 
 declare global {
   interface Window {
@@ -14,6 +14,7 @@ interface LucyMessage {
   role: 'user' | 'assistant';
   content: string;
   suggestedSymbols?: string[];
+  evidence?: LucyEvidence[];
 }
 
 @Component({
@@ -122,7 +123,7 @@ export class LucyPanelComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.messages = [
           ...this.messages,
-          this.formatReply(response.reply)
+          this.formatReply(response)
         ];
         this.isSending = false;
       },
@@ -160,14 +161,14 @@ export class LucyPanelComponent implements OnInit, OnDestroy {
     this.thoughtSocket.onerror = () => this.isConnected = false;
   }
 
-  private formatReply(reply: string): LucyMessage {
+  private formatReply(response: LucyReply): LucyMessage {
     const suggestions = new Set<string>();
     const buttonPattern = /<button\b[^>]*data-symbol=["']([a-z0-9]+)["'][^>]*>([\s\S]*?)<\/button>/gi;
-    const content = reply.replace(buttonPattern, (_match, symbol: string, label: string) => {
+    const content = response.reply.replace(buttonPattern, (_match, symbol: string, label: string) => {
       suggestions.add(symbol.toUpperCase());
       return label.replace(/<[^>]*>/g, '').trim();
     });
-    return { role: 'assistant', content, suggestedSymbols: [...suggestions] };
+    return { role: 'assistant', content, suggestedSymbols: [...suggestions], evidence: response.evidence };
   }
 
   private handleThought(thought: Record<string, unknown>): void {

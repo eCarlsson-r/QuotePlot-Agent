@@ -8,6 +8,13 @@ export interface LucyReply {
   prediction_type?: string;
   probability?: number;
   insight_text?: string;
+  evidence?: LucyEvidence[];
+}
+
+export interface LucyEvidence {
+  source: string;
+  status: 'available' | 'unavailable' | 'insufficient' | string;
+  summary: string;
 }
 
 export interface LucyThought {

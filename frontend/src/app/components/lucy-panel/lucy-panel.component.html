@@ -32,6 +32,13 @@
     <article *ngFor="let message of messages" [class.user-message]="message.role === 'user'">
       <strong>{{ message.role === 'user' ? 'You' : 'Lucy' }}</strong>
       <p>{{ message.content }}</p>
+      <section class="evidence" *ngIf="message.evidence?.length" aria-label="Investigation evidence">
+        <h3>Investigation evidence</h3>
+        <article *ngFor="let item of message.evidence" class="evidence-item">
+          <div><strong>{{ item.source }}</strong><span class="evidence-status" [attr.data-status]="item.status">{{ item.status }}</span></div>
+          <p>{{ item.summary }}</p>
+        </article>
+      </section>
       <div class="suggestions" *ngIf="message.suggestedSymbols?.length">
         <button *ngFor="let symbol of message.suggestedSymbols" type="button" (click)="selectSuggestion(symbol)">
           {{ symbol }}
@@ -40,7 +47,7 @@
     </article>
   </div>
 
-  <p *ngIf="isSending" class="state">Lucy is thinking...</p>
+  <p *ngIf="isSending" class="state">Lucy is checking market history, web research, model signals, and Ethereum evidence…</p>
   <p *ngIf="errorMessage" class="state state-error">{{ errorMessage }}</p>
 
   <form (ngSubmit)="send()" class="chat-form">

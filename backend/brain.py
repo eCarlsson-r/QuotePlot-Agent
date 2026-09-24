@@ -40,6 +40,8 @@ def classify_user_intent(message: str):
             "price", "chart", "analysis", "technical", "prediction", "indicators",
             "target", "news", "opinion", "sentiment", "feeling", "social", "twitter",
             "hype",
+            "on-chain", "onchain", "blockchain", "erc20", "erc-20",
+            "contract address", "token contract",
             # Traditional stock keywords
             "stock", "stocks", "share", "shares", "equity", "equities",
             "nasdaq", "nyse", "s&p", "sp500", "dow", "russell",
