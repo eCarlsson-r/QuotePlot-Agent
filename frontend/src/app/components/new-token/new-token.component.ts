@@ -30,6 +30,8 @@ export class NewTokenComponent {
  
   openNewTokenDialog() {
     this.dialog.open(NewTokenDialogComponent, {
+      width: 'min(31rem, calc(100vw - 2rem))',
+      maxWidth: '31rem',
       data: {
         name: '',
         symbol: '',

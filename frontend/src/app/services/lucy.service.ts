@@ -12,7 +12,20 @@ export interface LucyReply {
 
 export interface LucyThought {
   type: string;
-  content: string;
+  content?: string;
+  symbol?: string;
+  [key: string]: unknown;
+}
+
+export interface LucyTokenStats {
+  win_rate: number;
+  total_trades: number;
+  streak: number;
+}
+
+export interface BrightDataStatus {
+  connected: boolean;
+  label: string;
 }
 
 @Injectable({
@@ -39,6 +52,14 @@ export class LucyService {
     });
   }
 
+  getTokenStats(symbol: string): Observable<LucyTokenStats> {
+    return this.http.get<LucyTokenStats>(`/api/agent/token-stats/${encodeURIComponent(symbol)}`);
+  }
+
+  getBrightDataStatus(): Observable<BrightDataStatus> {
+    return this.http.get<BrightDataStatus>('/api/agent/brightdata-status');
+  }
+
   connectThoughtStream(
     onThought: (thought: LucyThought) => void,
     onClose?: () => void
@@ -48,7 +69,16 @@ export class LucyService {
 
     socket.onmessage = (event) => {
       try {
-        onThought(JSON.parse(event.data) as LucyThought);
+        const envelope = JSON.parse(event.data) as LucyThought;
+        if (envelope.type === 'thought' && typeof envelope.content === 'string') {
+          try {
+            onThought(JSON.parse(envelope.content) as LucyThought);
+          } catch {
+            onThought(envelope);
+          }
+          return;
+        }
+        onThought(envelope);
       } catch {
         return;
       }

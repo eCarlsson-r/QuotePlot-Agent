@@ -30,8 +30,14 @@ export class MintDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: MintData,
     private progressSpinnerService: ProgressSpinnerService
   ) {}
- 
+
+  get canSubmit(): boolean {
+    const amount = this.data.amount.trim();
+    return /^\d+$/.test(amount) && BigInt(amount) > 0n;
+  }
+
   onMint() {
+    if (!this.canSubmit) return;
     this.dialogRef.close();
     const promise = this.data.contract.mint(this.data.amount);
     this.progressSpinnerService.showSpinnerUntilExecuted(

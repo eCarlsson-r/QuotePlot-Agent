@@ -13,8 +13,11 @@ html {
         primary: mat.$azure-palette,
         tertiary: mat.$blue-palette,
       ),
-      typography: Roboto,
-      density: 0,
+      typography: (
+        plain-family: (system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif),
+        brand-family: (system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif),
+      ),
+      density: -3,
     )
   );
 }

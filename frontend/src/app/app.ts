@@ -6,9 +6,9 @@ import { Subscription } from 'rxjs';
 import { NetworkChange, ProviderService } from './services/provider.service';
 import { TokenListComponent } from './components/token-list/token-list.component';
 import { EventListComponent } from './components/event-list/event-list.component';
+import { NewTokenComponent } from './components/new-token/new-token.component';
 import { MarketPanelComponent } from './components/market-panel/market-panel.component';
 import { LucyPanelComponent } from './components/lucy-panel/lucy-panel.component';
-import { NewTokenComponent } from './components/new-token/new-token.component';
  
 @Component({
   selector: 'app-root',
@@ -19,9 +19,9 @@ import { NewTokenComponent } from './components/new-token/new-token.component';
     ConnectionBarComponent,
     TokenListComponent,
     EventListComponent,
+    NewTokenComponent,
     MarketPanelComponent,
-    LucyPanelComponent,
-    NewTokenComponent
+    LucyPanelComponent
   ],
   templateUrl: './app.html',
   styleUrl: './app.css'

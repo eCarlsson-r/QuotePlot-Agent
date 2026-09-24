@@ -1,28 +1,41 @@
-:host { display: block; }
-
-.market-panel { min-height: 28rem; padding: 1.25rem; border: 1px solid #1e293b; border-radius: .75rem; background: #0f172a; box-shadow: 0 20px 60px rgba(0, 0, 0, .24); }
-
-.panel-heading, .ticker, .insight { display: flex; align-items: center; }
-.panel-heading { justify-content: space-between; gap: 1rem; }
+:host { display: block; min-width: 0; }
+.market-panel { min-height: 40rem; padding: 1.25rem; border: 1px solid #1e293b; border-radius: 1rem; background: linear-gradient(145deg, rgba(15, 23, 42, .98), rgba(7, 13, 27, .98)); box-shadow: 0 24px 70px rgba(0, 0, 0, .24); }
+.panel-heading, .asset-summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .eyebrow, h2 { margin: 0; }
 .eyebrow { color: #60a5fa; font-size: .65rem; letter-spacing: .14em; text-transform: uppercase; }
-h2 { color: #f8fafc; font-size: 1.2rem; }
-.panel-caption { margin: .35rem 0 0; color: #64748b; font-size: .68rem; }
+h2 { margin-top: .2rem; color: #f8fafc; font-size: 1.15rem; }
 .status { display: inline-flex; align-items: center; gap: .4rem; color: #34d399; font-size: .65rem; font-weight: 700; text-transform: uppercase; }
 .status-dot { width: .4rem; height: .4rem; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
 .status-offline, .state-error { color: #f87171; }
-.state { margin: 1rem 0 0; color: #94a3b8; font-size: .75rem; }
-.ticker-list { display: grid; grid-template-columns: 1fr; gap: .35rem; margin-top: 1.25rem; max-height: 22rem; overflow-y: auto; }
-.ticker { justify-content: space-between; gap: .5rem; padding: .7rem .8rem; border: 1px solid transparent; border-bottom-color: #1e293b; background: rgba(2, 6, 23, .4); color: #cbd5e1; cursor: pointer; font: inherit; font-size: .75rem; text-align: left; }
-.ticker:hover, .ticker-selected { border-color: rgba(59, 130, 246, .55); background: rgba(30, 64, 175, .24); }
-.ticker-symbol, .insight-symbol { color: #f8fafc; font-weight: 700; }
-.ticker-price { color: #cbd5e1; }
-.change-positive { color: #34d399; }
-.change-negative { color: #f87171; }
-.insight { align-items: flex-start; gap: .75rem; margin-top: 1rem; padding: .9rem; border: 1px solid #1e40af; border-left: 3px solid #3b82f6; background: rgba(15, 23, 42, .8); }
-.insight p { margin: 0; color: #cbd5e1; font-size: .72rem; line-height: 1.55; }
-.insight-symbol { min-width: 5.5rem; color: #93c5fd; font-size: .65rem; }
-
-@media (max-width: 600px) {
-  .ticker-list { grid-template-columns: 1fr; }
-}
+.state { color: #64748b; font-size: .75rem; }
+.market-workspace { display: grid; grid-template-columns: minmax(13rem, .78fr) minmax(0, 1.7fr); gap: 1.2rem; min-height: 34rem; margin-top: 1.2rem; }
+.asset-list { display: flex; min-height: 0; flex-direction: column; border-right: 1px solid #1e293b; padding-right: 1rem; }
+.search-box { display: flex; align-items: center; gap: .55rem; padding: .65rem .75rem; border: 1px solid #263449; border-radius: .55rem; background: rgba(2, 6, 23, .65); color: #64748b; }
+.search-box span { font-size: 1.2rem; line-height: .8; }
+.search-box input { width: 100%; border: 0; outline: 0; background: transparent; color: #e2e8f0; font: inherit; font-size: .72rem; }
+.ticker-list { display: grid; align-content: start; gap: .25rem; flex: 1; max-height: 27rem; margin-top: .65rem; overflow-y: auto; }
+.ticker { display: flex; align-items: center; gap: .6rem; width: 100%; padding: .7rem .45rem; border: 1px solid transparent; border-radius: .55rem; background: transparent; color: #cbd5e1; cursor: pointer; font: inherit; text-align: left; }
+.ticker:hover, .ticker-selected { border-color: #263a59; background: rgba(30, 64, 175, .16); }
+.ticker-badge { display: grid; flex: 0 0 1.9rem; width: 1.9rem; height: 1.9rem; place-items: center; border: 1px solid #2b3b54; border-radius: 50%; color: #93c5fd; font-size: .75rem; font-weight: 700; }
+.ticker-name, .ticker-values { display: grid; gap: .2rem; }
+.ticker-name strong, .ticker-values strong { color: #e2e8f0; font-size: .72rem; }
+.ticker-name small, .ticker-values small { color: #64748b; font-size: .62rem; }
+.ticker-values { margin-left: auto; text-align: right; }
+.change-positive { color: #34d399 !important; }
+.change-negative { color: #fb7185 !important; }
+.feed-note { margin: .8rem 0 0; color: #475569; font-size: .58rem; line-height: 1.5; }
+.chart-area { display: flex; min-width: 0; flex-direction: column; padding: .3rem .2rem; }
+.asset-summary { align-items: end; }
+.headline-price { margin-top: .4rem; color: #f8fafc; font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; letter-spacing: -.04em; }
+.price-change { margin-bottom: .35rem; padding: .35rem .55rem; border-radius: .35rem; background: rgba(15, 23, 42, .9); font-size: .7rem; }
+.chart-wrap { position: relative; display: grid; min-height: 18rem; place-items: center; margin-top: 1rem; border: 1px solid rgba(30, 41, 59, .6); border-radius: .6rem; background: linear-gradient(180deg, rgba(2, 6, 23, .22), rgba(2, 6, 23, .08)); }
+.chart-wrap svg { width: 100%; height: 100%; min-height: 18rem; overflow: visible; }
+.grid-line { stroke: #1e293b; stroke-width: 1; stroke-dasharray: 4 7; }
+.chart-fill { fill: url(#chart-fill); }
+.chart-line { fill: none; stroke: #60a5fa; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.chart-empty { padding: 1rem; color: #64748b; font-size: .7rem; text-align: center; }
+.chart-axis { display: flex; justify-content: space-between; padding: .45rem .2rem; color: #475569; font-size: .58rem; }
+.insight { display: flex; align-items: flex-start; gap: .75rem; margin-top: .75rem; padding: .8rem; border: 1px solid #1e40af; border-left: 3px solid #3b82f6; border-radius: .35rem; background: rgba(15, 23, 42, .8); }
+.insight p { margin: 0; color: #cbd5e1; font-size: .68rem; line-height: 1.55; }
+.insight-symbol { min-width: 5.5rem; color: #93c5fd; font-size: .6rem; font-weight: 700; }
+@media (max-width: 780px) { .market-workspace { grid-template-columns: 1fr; } .asset-list { border-right: 0; border-bottom: 1px solid #1e293b; padding: 0 0 1rem; } .ticker-list { grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); max-height: 13rem; } .market-panel { min-height: 0; } }

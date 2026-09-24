@@ -30,10 +30,15 @@ export class ChangeOwnerDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: ChangeOwnerData,
     private progressSpinnerService: ProgressSpinnerService
   ) {}
- 
+
+  get canSubmit(): boolean {
+    return ethers.isAddress(this.data.newOwnerAddress.trim());
+  }
+
   onChangeOwner() {
+    if (!this.canSubmit) return;
     this.dialogRef.close();
-    const promise = this.data.contract.changeOwner(this.data.newOwnerAddress);
+    const promise = this.data.contract.changeOwner(this.data.newOwnerAddress.trim());
     this.progressSpinnerService.showSpinnerUntilExecuted(
       promise,
       this.data.onChangeOwner

@@ -3,10 +3,26 @@
     <div>
       <p class="eyebrow">Agent console</p>
       <h2 id="lucy-heading">Ask Lucy</h2>
+      <div class="agent-actions">
+        <button type="button" class="text-button" (click)="toggleLogs()">
+          {{ logsVisible ? 'Hide internal' : 'Show internal' }}
+        </button>
+        <button type="button" class="text-button" (click)="enableNotifications()">Enable alerts</button>
+      </div>
     </div>
-    <span class="connection" [class.connection-offline]="!isConnected">
-      {{ isConnected ? 'Live' : 'Offline' }}
-    </span>
+    <div class="status-group">
+      <span class="connection" [class.connection-offline]="!isConnected">{{ isConnected ? 'Live' : 'Offline' }}</span>
+      <span class="brightdata-badge" [class.badge-connected]="brightDataConnected">{{ brightDataLabel }}</span>
+    </div>
+  </div>
+
+  <div class="reliability" aria-label="Lucy reliability statistics">
+    <span class="reliability-title">{{ selectedSymbol }} reliability</span>
+    <div class="reliability-stats">
+      <div><strong>{{ winRate | number: '1.0-2' }}%</strong><small>Accuracy</small></div>
+      <div><strong>{{ sampleCount }}</strong><small>Samples</small></div>
+      <div><strong>{{ streak }}</strong><small>Current streak</small></div>
+    </div>
   </div>
 
   <div class="messages" aria-live="polite">
@@ -16,6 +32,11 @@
     <article *ngFor="let message of messages" [class.user-message]="message.role === 'user'">
       <strong>{{ message.role === 'user' ? 'You' : 'Lucy' }}</strong>
       <p>{{ message.content }}</p>
+      <div class="suggestions" *ngIf="message.suggestedSymbols?.length">
+        <button *ngFor="let symbol of message.suggestedSymbols" type="button" (click)="selectSuggestion(symbol)">
+          {{ symbol }}
+        </button>
+      </div>
     </article>
   </div>
 
@@ -29,13 +50,20 @@
       name="prompt"
       [(ngModel)]="prompt"
       rows="2"
-      placeholder="What is moving BTC today?"
+      [placeholder]="'What is moving ' + selectedSymbol + ' today?'"
     ></textarea>
     <button type="submit" [disabled]="isSending || !prompt.trim()">Send</button>
   </form>
 
-  <div class="thoughts" *ngIf="thoughts.length > 0">
-    <span>Live thought stream</span>
+  <div class="thoughts" *ngIf="logsVisible">
+    <div class="thoughts-heading"><span>Lucy internal stream</span><span>{{ isConnected ? 'CONNECTED' : 'RECONNECTING' }}</span></div>
+    <p *ngIf="thoughts.length === 0" class="thought-empty">Waiting for Lucy updates…</p>
     <p *ngFor="let thought of thoughts">{{ thought }}</p>
   </div>
+
+  <div class="panel-footer">
+    <span>Lucy conversation · {{ messages.length }} messages</span>
+    <button type="button" class="export-button" (click)="exportAnalysis()">Export analysis</button>
+  </div>
+  <p *ngIf="exportError" class="export-error">{{ exportError }}</p>
 </section>

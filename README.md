@@ -1,30 +1,31 @@
 # QuotePlot Agent
 
-QuotePlot Agent is a Web3 market-intelligence application. The Angular frontend provides the terminal UI and wallet experience, the FastAPI backend provides market and Lucy AI services, and the Hardhat project manages the Sepolia smart contracts.
+QuotePlot Agent is a Web3 market-intelligence application. Angular provides the complete browser interface for market data, Lucy, wallets, and token management. FastAPI provides JSON APIs and the thought-stream WebSocket, and Hardhat manages the Sepolia smart contracts.
 
 ## Architecture
 
 ```text
-frontend/   Angular terminal UI, WalletConnect, ethers.js
-backend/    FastAPI APIs, Lucy AI, market ingestion, database, WebSocket stream
+frontend/   Angular market, Lucy, wallet, and token interface
+backend/    FastAPI APIs, Lucy AI, market ingestion, database, WebSocket
 contracts/  Solidity contracts, Hardhat tests, deployment scripts
+templates/  Previous Jinja frontend retained as migration reference
+static/     Previous frontend scripts and styles retained as migration reference
 ```
 
 Runtime communication:
 
 ```text
-Angular -> /api/market/* -> FastAPI -> database and market providers
-Angular -> /api/agent/*  -> FastAPI -> Lucy AI and Bright Data
-Angular -> /ws/thoughts  -> FastAPI WebSocket
-Angular -> wallet/RPC    -> Sepolia contracts
+Angular -> /api/market/* and /api/agent/* -> FastAPI
+Angular -> /ws/thoughts -> FastAPI WebSocket
+Angular -> wallet/RPC -> Sepolia contracts
 ```
 
-The active frontend is `frontend/`. The root `static/` and `templates/` directories are legacy HTMX/Jinja assets retained temporarily for migration reference; they are no longer mounted by FastAPI.
+Angular is the only active frontend. It consolidates the market chart, ticker search, Lucy chat, thought stream, wallet connection, token factory, and contract events. The old Jinja templates and root `static/` assets remain in the repository for reference while the Angular interface is validated; FastAPI no longer serves them.
 
 ## Features
 
-- Market ticker and token insight panels
-- Lucy AI chat with persistent browser sessions
+- Searchable market ticker, price history chart, and token insight panels
+- Lucy AI chat with persistent browser sessions, Bright Data status, reliability stats, and thought stream
 - Live Lucy thought stream over WebSocket
 - Bright Data market, news, and sentiment enrichment
 - WalletConnect and MetaMask support
@@ -47,14 +48,15 @@ backend/
     token_intelligence.py # TokenMap symbol → Ethereum ERC-20 metadata
   lucy/                   # Legacy text-processing helpers used by the brain
 frontend/
-  src/app/                # Angular components and services
+  src/app/                # Angular wallet and token-management components
+  public/assets/          # Angular-served wallet icons
   proxy.conf.json         # Local /api and /ws proxy to FastAPI
 contracts/
   contracts/              # SeedToken and SeedTokenFactory
   scripts/                # Deployment and setup scripts
   test/                   # Hardhat tests
-static/                   # Legacy HTMX assets
-templates/               # Legacy Jinja templates
+static/                   # Dashboard JavaScript, CSS, chart, and image assets
+templates/                # Jinja dashboard and HTMX partials
 ```
 
 ## Requirements
@@ -155,7 +157,7 @@ cd /Users/carlsson/Documents/QuotePlot-Agent/frontend
 npm start
 ```
 
-Open [http://localhost:4200](http://localhost:4200). Angular proxies `/api` and `/ws` to FastAPI on port 8000.
+Open [http://localhost:4200](http://localhost:4200) for the complete Angular application. Angular proxies `/api` and `/ws` requests to FastAPI on port 8000.
 
 ## Database Seeding
 
@@ -202,7 +204,7 @@ cd /Users/carlsson/Documents/QuotePlot-Agent
 python3 -m compileall -q backend
 ```
 
-The Angular build currently emits bundle-size and WalletConnect CommonJS warnings. The Hardhat suite may require its existing ESM test imports to be updated before it passes.
+The Hardhat suite may require its existing ESM test imports to be updated before it passes.
 
 ## API Surface
 

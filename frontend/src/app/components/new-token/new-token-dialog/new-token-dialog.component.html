@@ -1,16 +1,39 @@
-<h1 mat-dialog-title class="dialog-title">Deploy New Asset</h1>
-<p class="dialog-kicker">SEPOLIA CONTRACT FACTORY</p>
-<div mat-dialog-content class="dialog-content">
-  <mat-form-field appearance="outline">
-    <mat-label>Name</mat-label>
-    <input matInput [(ngModel)]="data.name">
-  </mat-form-field>
-  <mat-form-field appearance="outline">
-    <mat-label>Symbol</mat-label>
-    <input matInput [(ngModel)]="data.symbol">
-  </mat-form-field>
-</div>
-<div mat-dialog-actions class="dialog-actions">
-  <button mat-stroked-button class="dialog-create" (click)="onCreate()">Deploy</button>
-  <button mat-button class="dialog-cancel" (click)="onCancel()">Cancel</button>
+<div class="dialog-shell">
+  <header class="dialog-header">
+    <div class="dialog-mark" aria-hidden="true">＋</div>
+    <div class="dialog-heading">
+      <p class="dialog-kicker">SEPOLIA · TOKEN FACTORY</p>
+      <h1 mat-dialog-title class="dialog-title">Create a token</h1>
+      <p class="dialog-description">Set the name and ticker for your new asset.</p>
+    </div>
+  </header>
+
+  <div mat-dialog-content class="dialog-content">
+    <div class="field-grid">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Token name</mat-label>
+        <input matInput [(ngModel)]="data.name" placeholder="e.g. QuotePlot Token" autocomplete="off">
+      </mat-form-field>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Symbol</mat-label>
+        <input matInput [(ngModel)]="data.symbol" placeholder="e.g. QPT" autocomplete="off" autocapitalize="characters">
+      </mat-form-field>
+    </div>
+
+    <section class="token-preview" aria-live="polite" aria-label="Token preview">
+      <div class="token-avatar">{{ previewInitial }}</div>
+      <div class="preview-copy">
+        <span class="preview-label">PREVIEW</span>
+        <strong>{{ data.name.trim() || 'Your token name' }}</strong>
+      </div>
+      <span class="preview-symbol">{{ data.symbol.trim() || 'TICKER' }}</span>
+    </section>
+  </div>
+
+  <div mat-dialog-actions class="dialog-actions">
+    <button mat-button class="dialog-cancel" type="button" (click)="onCancel()">Cancel</button>
+    <button mat-stroked-button class="dialog-create" type="button" [disabled]="!canCreate" (click)="onCreate()">
+      Deploy token
+    </button>
+  </div>
 </div>

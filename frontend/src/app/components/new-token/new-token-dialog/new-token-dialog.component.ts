@@ -28,12 +28,21 @@ export class NewTokenDialogComponent {
     private progressSpinnerService: ProgressSpinnerService,
     private seedTokenFactoryService: SeedTokenFactoryService
   ) {}
- 
+
+  get canCreate(): boolean {
+    return Boolean(this.data.name.trim() && this.data.symbol.trim());
+  }
+
+  get previewInitial(): string {
+    return this.data.symbol.trim().charAt(0).toUpperCase() || '+';
+  }
+
   onCreate() {
+    if (!this.canCreate) return;
     this.dialogRef.close();
     const promise = this.seedTokenFactoryService.get().create(
-      this.data.name,
-      this.data.symbol
+      this.data.name.trim(),
+      this.data.symbol.trim()
     );
     this.progressSpinnerService.showSpinnerUntilExecuted(
       promise,

@@ -204,6 +204,8 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
  
   openMintDialog(element: Token) {
     this.dialog.open(MintDialogComponent, {
+      width: 'min(31rem, calc(100vw - 2rem))',
+      maxWidth: '31rem',
       data: {
         address: element.address,
         name: element.name,
@@ -219,6 +221,8 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
  
   openChangeOwnerDialog(element: Token) {
     this.dialog.open(ChangeOwnerDialogComponent, {
+      width: 'min(31rem, calc(100vw - 2rem))',
+      maxWidth: '31rem',
       data: {
         address: element.address,
         name: element.name,

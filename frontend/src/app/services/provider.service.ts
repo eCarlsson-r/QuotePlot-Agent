@@ -29,14 +29,8 @@ export class ProviderService {
   ) {
     this.defaultProvider = ethers.getDefaultProvider("sepolia", {
       "infura": infuraApiKey,
-      "exclusive": [
-        "alchemy",
-        "ankr",
-        "cloudflare",
-        "chainstack",
-        "infura",
-        "publicPolygon"
-      ]
+      // Use a single endpoint to avoid fallback fan-out and shared-provider 429s.
+      "exclusive": "infura"
     });
   }
  
@@ -84,7 +78,7 @@ export class ProviderService {
   ) {
     this.isEip1193Disconnect = isEip1193Disconnect;
     await this.disconnect();
-    await this.defaultProvider.removeAllListeners();
+    await this.defaultProvider.off('block', this.blockListener);
     this.eip1193 = eip1193;
     await this.eip1193.on('connect', this.connectListener);
     await this.eip1193.on('disconnect', this.disconnectListener);
@@ -106,14 +100,15 @@ export class ProviderService {
  
   public async disconnect() {
     await this.provider?.removeAllListeners();
+    this.removeWalletListeners();
     if (this.isEip1193Disconnect) {
       this.eip1193?.disconnect();
     }
-    await this.eip1193?.removeAllListeners();
     this.eip1193 = null;
     this.provider = null;
     this.signer = null;
     this.network = null;
+    await this.defaultProvider.off('block', this.blockListener);
     await this.defaultProvider.on('block', this.blockListener);
     this.blockNumber = null;
     await this.seedTokenFactoryService.reset(this.getProvider(), null);
@@ -129,5 +124,15 @@ export class ProviderService {
  
   public getNetwork(): string {
     return `${this.network?.name}(${this.network?.chainId})`;
+  }
+
+  private removeWalletListeners(): void {
+    const provider = this.eip1193;
+    if (!provider?.removeListener) return;
+    provider.removeListener('connect', this.connectListener);
+    provider.removeListener('disconnect', this.disconnectListener);
+    provider.removeListener('chainChanged', this.chainChangedListener);
+    provider.removeListener('accountsChanged', this.accountsChangedListener);
+    provider.removeListener('message', this.messageListener);
   }
 }

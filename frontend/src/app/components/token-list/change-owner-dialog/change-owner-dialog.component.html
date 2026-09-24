@@ -1,35 +1,24 @@
-<h1 mat-dialog-title>Change Owner</h1>
-<div mat-dialog-content>
-  Change the owner's address to
-  <mat-form-field>
-    <mat-label>Address</mat-label>
-    <input matInput [(ngModel)]="data.newOwnerAddress">
-  </mat-form-field>
-  for the cryptocurrency with
-  <mat-list>
-    <mat-list-item>
-      <div class="justify">
-        <span>Address</span>
-        <span>{{ data.address }}</span>
-      </div>
-    </mat-list-item>
-    <mat-divider></mat-divider>
-    <mat-list-item>
-      <div class="justify">
-        <span>Name</span>
-        <span>{{ data.name }}</span>
-      </div>
-    </mat-list-item>
-    <mat-divider></mat-divider>
-    <mat-list-item>
-      <div class="justify">
-        <span>Symbol</span>
-        <span>{{ data.symbol }}</span>
-      </div>
-    </mat-list-item>
-  </mat-list>
-</div>
-<div mat-dialog-actions>
-  <button mat-raised-button color="accent" (click)="onChangeOwner()">Change Owner</button>
-  <button mat-raised-button (click)="onCancel()">Cancel</button>
+<div class="form-dialog">
+  <header class="form-dialog-header">
+    <span class="form-dialog-icon owner-icon" aria-hidden="true">↗</span>
+    <div>
+      <p class="form-dialog-eyebrow">TOKEN FACTORY</p>
+      <h1 mat-dialog-title class="dialog-title">Change owner</h1>
+      <p class="form-dialog-subtitle">Transfer administration to another wallet.</p>
+    </div>
+  </header>
+  <div mat-dialog-content class="form-dialog-content">
+    <label class="field-caption" for="new-owner-address">New owner address</label>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="compact-field">
+      <input id="new-owner-address" matInput [(ngModel)]="data.newOwnerAddress" placeholder="0x…" autocomplete="off" spellcheck="false">
+    </mat-form-field>
+    <section class="asset-summary" aria-label="Token details">
+      <div class="asset-heading"><span class="asset-symbol">{{ data.symbol }}</span><strong>{{ data.name }}</strong></div>
+      <div class="asset-address"><span>CONTRACT</span><code>{{ data.address }}</code></div>
+    </section>
+  </div>
+  <div mat-dialog-actions class="form-dialog-actions">
+    <button mat-button class="secondary-action" type="button" (click)="onCancel()">Cancel</button>
+    <button mat-flat-button class="primary-action" type="button" [disabled]="!canSubmit" (click)="onChangeOwner()">Update owner</button>
+  </div>
 </div>

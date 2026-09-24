@@ -1,7 +1,7 @@
 <main class="dashboard-shell">
 	<header class="dashboard-header">
 		<div class="brand-lockup">
-			<div class="brand-mark">QP</div>
+			<img class="brand-mark" src="/assets/quoteplot-logo.svg" alt="" />
 			<div>
 				<p class="brand-kicker">QuotePlot Agent</p>
 				<h1>Market intelligence terminal</h1>
@@ -10,16 +10,26 @@
 		<app-connection-bar></app-connection-bar>
 	</header>
 
-	<section class="dashboard-grid">
-		<div class="market-column">
-			<app-market-panel></app-market-panel>
+	<section id="report-area" class="dashboard-grid" aria-label="Market intelligence and Lucy chat">
+		<app-market-panel #marketPanel (selectedSymbolChange)="lucyPanel.setSymbol($event)"></app-market-panel>
+		<app-lucy-panel #lucyPanel (symbolRequested)="marketPanel.selectSymbol($event)"></app-lucy-panel>
+	</section>
+
+	<section class="management-section" aria-labelledby="management-heading">
+		<div class="section-intro">
+			<div>
+				<p class="brand-kicker">Wallet workspace</p>
+				<h2 id="management-heading">Token management</h2>
+			</div>
+			<p>Manage deployed assets and inspect on-chain creation events.</p>
 		</div>
-		<div class="management-column">
-			<app-new-token></app-new-token>
-			<app-token-list></app-token-list>
+		<div class="management-grid">
+			<div class="management-primary">
+				<app-new-token></app-new-token>
+				<app-token-list></app-token-list>
+			</div>
 			<app-event-list></app-event-list>
 		</div>
-		<app-lucy-panel></app-lucy-panel>
 	</section>
 </main>
 <router-outlet />
