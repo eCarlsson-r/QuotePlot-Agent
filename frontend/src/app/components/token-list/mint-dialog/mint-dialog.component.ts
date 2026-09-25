@@ -32,14 +32,15 @@ export class MintDialogComponent {
   ) {}
 
   get canSubmit(): boolean {
-    const amount = this.data.amount.trim();
+    const amount = String(this.data.amount ?? '').trim();
     return /^\d+$/.test(amount) && BigInt(amount) > 0n;
   }
 
   onMint() {
     if (!this.canSubmit) return;
     this.dialogRef.close();
-    const promise = this.data.contract.mint(this.data.amount);
+    const amount = String(this.data.amount).trim();
+    const promise = this.data.contract.mint(amount);
     this.progressSpinnerService.showSpinnerUntilExecuted(
       promise,
       this.data.onMint

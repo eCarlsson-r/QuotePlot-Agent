@@ -10,7 +10,7 @@
   <div mat-dialog-content class="form-dialog-content">
     <label class="field-caption" for="mint-amount">Amount</label>
     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="compact-field">
-      <input id="mint-amount" matInput [(ngModel)]="data.amount" placeholder="Enter whole token amount" type="number" min="1" step="1" inputmode="numeric" autocomplete="off">
+      <input id="mint-amount" matInput [(ngModel)]="data.amount" placeholder="Enter whole token amount" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
     </mat-form-field>
     <section class="asset-summary" aria-label="Token details">
       <div class="asset-heading"><span class="asset-symbol">{{ data.symbol }}</span><strong>{{ data.name }}</strong></div>
