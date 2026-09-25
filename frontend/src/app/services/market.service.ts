@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { backendApiUrl } from './backend-url';
 
 export interface MarketTicker {
   price: number;
@@ -25,19 +26,19 @@ export class MarketService {
 
   getTickers(): Observable<Record<string, MarketTicker>> {
     return this.http.get<Record<string, MarketTicker>>(
-      '/api/market/tickers'
+      backendApiUrl('/api/market/tickers')
     );
   }
 
   getInsight(symbol: string): Observable<MarketInsight> {
     return this.http.get<MarketInsight>(
-      `/api/market/insight/${encodeURIComponent(symbol)}`
+      backendApiUrl(`/api/market/insight/${encodeURIComponent(symbol)}`)
     );
   }
 
   getHistory(symbol: string): Observable<MarketHistoryPoint[]> {
     return this.http.get<MarketHistoryPoint[]>(
-      `/api/market/history/${encodeURIComponent(symbol)}`
+      backendApiUrl(`/api/market/history/${encodeURIComponent(symbol)}`)
     );
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ethers } from 'ethers';
-import { abi } from '../../../../contracts/artifacts/contracts/SeedTokenFactory.sol/SeedTokenFactory.json';
+import { seedTokenFactoryAbi as abi } from '../contracts/seed-token-factory.abi';
 import { Subject } from 'rxjs';
 import { MatTableDataSource } from '@angular/material/table';
 import { Token } from '../components/token-list/token-list.component';

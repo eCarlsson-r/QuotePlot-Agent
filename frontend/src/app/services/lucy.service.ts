@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { backendApiUrl, backendWebSocketUrl } from './backend-url';
 
 export interface LucyReply {
   reply: string;
@@ -53,26 +54,25 @@ export class LucyService {
   }
 
   reply(content: string): Observable<LucyReply> {
-    return this.http.post<LucyReply>('/api/agent/reply', {
+    return this.http.post<LucyReply>(backendApiUrl('/api/agent/reply'), {
       content,
       session_id: this.sessionId
     });
   }
 
   getTokenStats(symbol: string): Observable<LucyTokenStats> {
-    return this.http.get<LucyTokenStats>(`/api/agent/token-stats/${encodeURIComponent(symbol)}`);
+    return this.http.get<LucyTokenStats>(backendApiUrl(`/api/agent/token-stats/${encodeURIComponent(symbol)}`));
   }
 
   getBrightDataStatus(): Observable<BrightDataStatus> {
-    return this.http.get<BrightDataStatus>('/api/agent/brightdata-status');
+    return this.http.get<BrightDataStatus>(backendApiUrl('/api/agent/brightdata-status'));
   }
 
   connectThoughtStream(
     onThought: (thought: LucyThought) => void,
     onClose?: () => void
   ): WebSocket {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${protocol}//${window.location.host}/ws/thoughts`);
+    const socket = new WebSocket(backendWebSocketUrl('/ws/thoughts'));
 
     socket.onmessage = (event) => {
       try {

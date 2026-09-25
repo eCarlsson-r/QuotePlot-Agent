@@ -6,7 +6,7 @@ import { Subscription } from 'rxjs';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatSort } from '@angular/material/sort';
 import { MatPaginator } from '@angular/material/paginator';
-import { abi } from '../../../../../contracts/artifacts/contracts/SeedToken.sol/SeedToken.json';
+import { seedTokenAbi as abi } from '../../contracts/seed-token.abi';
 import { ethers } from 'ethers';
 import { MatDialog } from '@angular/material/dialog';
 import { MintDialogComponent } from './mint-dialog/mint-dialog.component';
