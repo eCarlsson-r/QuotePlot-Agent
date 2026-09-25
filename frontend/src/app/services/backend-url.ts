@@ -2,6 +2,7 @@ declare global {
   interface Window {
     __QUOTE_PLOT_CONFIG__?: {
       backendOrigin?: string;
+      sepoliaRpcUrl?: string;
     };
   }
 }

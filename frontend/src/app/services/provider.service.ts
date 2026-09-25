@@ -26,7 +26,10 @@ export class ProviderService {
   constructor(
     private seedTokenFactoryService: SeedTokenFactoryService
   ) {
-    this.defaultProvider = ethers.getDefaultProvider("sepolia");
+    const rpcUrl = window.__QUOTE_PLOT_CONFIG__?.sepoliaRpcUrl;
+    this.defaultProvider = rpcUrl
+      ? new ethers.JsonRpcProvider(rpcUrl, 11155111)
+      : ethers.getDefaultProvider("sepolia");
   }
  
   private connectListener = (connectInfo: { readonly chainId: string; }) => {

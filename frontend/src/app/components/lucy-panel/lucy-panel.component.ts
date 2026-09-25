@@ -48,16 +48,17 @@ export class LucyPanelComponent implements OnInit, OnDestroy {
   private statusTimer: ReturnType<typeof setInterval> | null = null;
   private destroyed = false;
 
-  constructor(private lucyService: LucyService) {}
-
-  ngOnInit(): void {
-    this.notificationsEnabled = 'Notification' in window && Notification.permission === 'granted';
-    this.connectThoughts();
+  constructor(private lucyService: LucyService) {
     afterNextRender(() => {
       if (this.destroyed) return;
       this.refreshServiceStatus();
       this.statusTimer = setInterval(() => this.refreshServiceStatus(), 60000);
     });
+  }
+
+  ngOnInit(): void {
+    this.notificationsEnabled = 'Notification' in window && Notification.permission === 'granted';
+    this.connectThoughts();
   }
 
   setSymbol(symbol: string): void {

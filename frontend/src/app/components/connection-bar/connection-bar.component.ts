@@ -78,12 +78,13 @@ export class ConnectionBarComponent implements OnInit, OnDestroy {
       metadata: {
         name: 'Mastering Solidity',
         description: 'The metadata is also required now, configuration in https://cloud.walletconnect.com/',
-        url: 'https://localhost:4200',
+        url: window.location.origin,
         icons: []
       },
       events: ["disconnect", "chainChanged", "accountsChanged"]
     });
     try {
+      if (!walletconnect.session) return;
       const accounts: string[] = await walletconnect.request({ method: 'eth_accounts' });
       if (accounts.length > 0) {
         await this.providerService.connect(walletconnect, true);
@@ -118,7 +119,7 @@ export class ConnectionBarComponent implements OnInit, OnDestroy {
       metadata: {
         name: 'Mastering Solidity',
         description: 'The metadata is also required now, configuration in https://cloud.walletconnect.com/',
-        url: 'https://localhost:4200',
+        url: window.location.origin,
         icons: []
       },
       events: ["disconnect", "chainChanged", "accountsChanged"]

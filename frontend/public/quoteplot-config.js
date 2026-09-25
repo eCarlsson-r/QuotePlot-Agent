@@ -1,1 +1,1 @@
-window.__QUOTE_PLOT_CONFIG__ = {"backendOrigin":""};
+window.__QUOTE_PLOT_CONFIG__ = {"backendOrigin":"","sepoliaRpcUrl":""};

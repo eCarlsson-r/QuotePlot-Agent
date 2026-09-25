@@ -67,7 +67,7 @@ Backend environment variables:
 | `FRONTEND_URL` | Optional browser origin allowed by FastAPI CORS. The local Angular proxy does not need cross-origin access. |
 | `PORT` | Optional backend port for direct module startup; defaults to 80. The documented local command explicitly uses 8000. |
 
-Hardhat Sepolia deployment uses `SEPOLIA_RPC_URL` and `SEPOLIA_PRIVATE_KEY` in the shell environment. Keep credentials out of source control. The Angular provider uses ethers' default Sepolia providers for read access, which may be rate-limited; connect a Sepolia-compatible wallet for signing and transactions.
+Hardhat Sepolia deployment uses `SEPOLIA_RPC_URL` and `SEPOLIA_PRIVATE_KEY` in the shell environment. Keep credentials out of source control. The Angular app accepts `QUOTE_PLOT_BACKEND_ORIGIN` and `QUOTE_PLOT_SEPOLIA_RPC_URL` as Vercel build environment variables. The RPC URL is included in the browser bundle, so use a provider key restricted to the production frontend origin and allow that origin in the provider's CORS settings. If unset, local development falls back to ethers' default Sepolia providers, which may be rate-limited. Connect a Sepolia-compatible wallet for signing and transactions.
 
 ## Install
 
