@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BrowserProvider, ethers } from 'ethers';
 import { Subject } from 'rxjs';
-import { infuraApiKey } from '../../../../contracts/infura.json';
 import { SeedTokenFactoryService } from './seed-token-factory.service';
  
 export type NetworkChange = {
@@ -27,11 +26,7 @@ export class ProviderService {
   constructor(
     private seedTokenFactoryService: SeedTokenFactoryService
   ) {
-    this.defaultProvider = ethers.getDefaultProvider("sepolia", {
-      "infura": infuraApiKey,
-      // Use a single endpoint to avoid fallback fan-out and shared-provider 429s.
-      "exclusive": "infura"
-    });
+    this.defaultProvider = ethers.getDefaultProvider("sepolia");
   }
  
   private connectListener = (connectInfo: { readonly chainId: string; }) => {

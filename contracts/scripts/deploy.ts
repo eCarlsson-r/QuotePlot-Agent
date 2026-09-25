@@ -1,32 +1,30 @@
 import { network } from "hardhat";
 
 const { ethers } = await network.create();
- 
+
 async function main() {
-    const [deployer] = await ethers.getSigners();
- 
-    //mint 1500 of our own cryptocurrency
-    console.log('Deploying our SEED cryptocurrency');
-    const SeedToken = await ethers.getContractFactory("SeedToken");
-    const seedToken = await SeedToken.deploy(
-        deployer.address,
-        "Seed Token",
-        "SEED"
-    );
-    await seedToken.waitForDeployment();
-    const currencyAddress = await seedToken.getAddress();
- 
-    console.log(`Our cryptocurrency address is ${currencyAddress}`);
-    console.log('Minting 1500 tokens');
-    let response = await seedToken.mint(1500);
-    await response.wait();
-    
-    console.log('Set up completed');
+  const [deployer] = await ethers.getSigners();
+  if (!deployer) {
+    throw new Error("No deployer account is configured for the selected network.");
+  }
+
+  console.log(`Deploying SeedTokenFactory from ${deployer.address}`);
+  const factory = await (await ethers.getContractFactory("SeedTokenFactory")).deploy();
+  await factory.waitForDeployment();
+  const factoryAddress = await factory.getAddress();
+
+  const transaction = await factory.create("Seed Token", "SEED");
+  const receipt = await transaction.wait();
+  if (!receipt) throw new Error("Factory token creation transaction was not mined.");
+
+  const tokenAddress = await factory.tokens(0);
+  console.log(`SeedTokenFactory: ${factoryAddress}`);
+  console.log(`Seed Token (SEED): ${tokenAddress}`);
+  console.log(`Network: ${await ethers.provider.getNetwork().then(({ name, chainId }) => `${name} (${chainId})`)}`);
+  console.log("Configure seed-token-factory.eth to resolve to the factory address before using the Angular token-management UI.");
 }
- 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
+
 main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
+  console.error(error);
+  process.exitCode = 1;
 });
