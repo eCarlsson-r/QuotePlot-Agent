@@ -55,6 +55,46 @@ mat-form-field { margin: 0; }
 .cdk-overlay-container .mat-mdc-option { color: #e2e8f0 !important; }
 .cdk-overlay-container .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) { background: #1e3a5f !important; }
 
+/* Shared dark controls for the deploy filter, inventory paginator, and event filters/paginator. */
+.creation-card .mat-mdc-form-field,
+.event-card .mat-mdc-form-field {
+  --mat-form-field-outlined-outline-color: #475569;
+  --mat-form-field-outlined-hover-outline-color: #60a5fa;
+  --mat-form-field-outlined-focus-outline-color: #2563eb;
+  --mat-form-field-outlined-label-text-color: #94a3b8;
+  --mat-form-field-outlined-hover-label-text-color: #bfdbfe;
+  --mat-form-field-outlined-input-text-color: #f8fafc;
+  --mat-form-field-outlined-input-text-placeholder-color: #94a3b8;
+  --mat-form-field-outlined-caret-color: #60a5fa;
+}
+.creation-card input.mat-mdc-input-element,
+.event-card input.mat-mdc-input-element {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc;
+  caret-color: #60a5fa;
+}
+.creation-card .mdc-floating-label,
+.event-card .mdc-floating-label { color: #94a3b8 !important; }
+.token-card .mat-mdc-paginator,
+.event-card .mat-mdc-paginator {
+  --mat-paginator-container-text-color: #cbd5e1;
+  --mat-paginator-enabled-icon-color: #cbd5e1;
+  --mat-paginator-disabled-icon-color: #64748b;
+  --mat-select-enabled-trigger-text-color: #f8fafc;
+  --mat-select-enabled-arrow-color: #cbd5e1;
+  color: #cbd5e1;
+}
+.token-card .mat-mdc-paginator-range-label,
+.token-card .mat-mdc-paginator-page-size-label,
+.event-card .mat-mdc-paginator-range-label,
+.event-card .mat-mdc-paginator-page-size-label { color: #cbd5e1 !important; }
+.token-card .mat-mdc-select-value-text,
+.event-card .mat-mdc-select-value-text { color: #f8fafc !important; }
+.token-card .mat-mdc-select-arrow,
+.event-card .mat-mdc-select-arrow { color: #cbd5e1 !important; }
+.token-card .mat-mdc-paginator .mat-mdc-icon-button,
+.event-card .mat-mdc-paginator .mat-mdc-icon-button { color: #cbd5e1; }
+
 .form-dialog { padding: 1.35rem; }
 .form-dialog-header { display: flex; align-items: flex-start; gap: .85rem; }
 .form-dialog-icon { display: grid; flex: 0 0 2.35rem; height: 2.35rem; place-items: center; border: 1px solid #334155; border-radius: .65rem; font: 500 1.1rem/1 system-ui, sans-serif; }

@@ -2,6 +2,8 @@
 
 QuotePlot Agent is a market-intelligence demo with an Angular browser app, a FastAPI backend, and Solidity token contracts. Lucy combines deterministic data collection and analysis with Gemini narration. The app includes wallet and token-management screens for Sepolia; using them requires a separately deployed factory and a wallet on Sepolia.
 
+The Angular frontend is publicly reachable at [quote-plot-agent.vercel.app](https://quote-plot-agent.vercel.app/). The project owner reports that the backend has deployed successfully, but its public origin was not available during the September 26, 2026 readiness check. The live frontend bundle had no configured backend origin or custom Sepolia RPC, so API, Lucy, and wallet flows have not yet passed an end-to-end check. Live Sepolia token management also requires a deployed factory, a Sepolia ENS record, a browser-accessible RPC endpoint, and a Sepolia wallet. No hackathon submission is claimed.
+
 ## Architecture and investigation flow
 
 ```text
@@ -20,7 +22,9 @@ Lucy token investigation (FastAPI)
 
 For a token question, the backend identifies a symbol and gathers price history and behavior, runs the local market model, and requests web context. The on-chain reader resolves the symbol through an active Ethereum `TokenMap` entry before calling the configured Ethereum JSON-RPC endpoint for the latest block and ERC-20 metadata. It never invents a contract address. Results are combined into evidence records with explicit available, unavailable, or insufficient status. Gemini can use its read-only on-chain and Bright Data tools to narrate findings; if Gemini is not available for that request, Lucy falls back to the collected deterministic insight. The Angular Lucy panel displays the returned reply and source evidence. The integration does not sign transactions or trade on a user's behalf.
 
-The Angular app is the active frontend. The older root `templates/` and `static/` content remains in the repository but is not served by FastAPI. The browser connects to FastAPI through `/api` and `/ws`; in local development the Angular proxy forwards these paths to `localhost:8000`.
+The Angular app is the active frontend. The older root `templates/` and `static/` content remains in the repository but is not served by FastAPI. In local development, the Angular proxy forwards `/api` and `/ws/thoughts` to `localhost:8000`. In production, the build-generated `quoteplot-config.js` sends HTTP and WebSocket traffic to the origin supplied through `QUOTE_PLOT_BACKEND_ORIGIN` over HTTPS/WSS.
+
+See [the architecture notes](docs/ARCHITECTURE.md) for component responsibilities, the token-investigation request sequence, and deployment boundaries. See the [demo script](docs/DEMO.md) for the live walkthrough and [submission checklist](docs/SUBMISSION.md) for release gates and copy-ready project details.
 
 ## Repository layout
 
@@ -55,7 +59,7 @@ Backend environment variables:
 
 | Variable | Purpose |
 | --- | --- |
-| `GEMINI_API_KEY` | Gemini Lucy narration and tool calling. Without it the backend's agent module cannot initialize. |
+| `GEMINI_API_KEY` | Required at backend import for Gemini Lucy narration and tool calling. If Gemini fails during a request, token investigations return their collected deterministic insight. |
 | `BRIGHTDATA_API_KEY` | Bright Data SERP, Web Unlocker, and MCP access; `BRIGHTDATA_TOKEN` is also accepted for MCP. |
 | `BRIGHTDATA_CUSTOMER_ID` | Bright Data account identifier for API access. |
 | `BRIGHTDATA_SERP_ZONE` | Bright Data SERP API zone. |
@@ -64,10 +68,10 @@ Backend environment variables:
 | `PYTH_HERMES_API_KEY` | Optional Pyth Hermes credential when the provider requires authentication. |
 | `ETH_RPC_URL` | Ethereum JSON-RPC endpoint used by Lucy's read-only on-chain evidence path. |
 | `DB_URL` | Optional complete SQLAlchemy database URL. When unset, use `DB_USER`, `DB_PASS`, `DB_HOST`, `DB_PORT`, and `DB_NAME` (defaults: root, empty password, localhost, 3306, quoteplot). |
-| `FRONTEND_URL` | Optional browser origin allowed by FastAPI CORS. The local Angular proxy does not need cross-origin access. |
+| `FRONTEND_URL` | Exact production browser origin allowed by FastAPI CORS. Required for the cross-origin Vercel frontend; the local Angular proxy does not need it. |
 | `PORT` | Optional backend port for direct module startup; defaults to 80. The documented local command explicitly uses 8000. |
 
-Hardhat Sepolia deployment uses `SEPOLIA_RPC_URL` and `SEPOLIA_PRIVATE_KEY` in the shell environment. Keep credentials out of source control. The Angular app accepts `QUOTE_PLOT_BACKEND_ORIGIN` and `QUOTE_PLOT_SEPOLIA_RPC_URL` as Vercel build environment variables. The RPC URL is included in the browser bundle, so use a provider key restricted to the production frontend origin and allow that origin in the provider's CORS settings. If unset, local development falls back to ethers' default Sepolia providers, which may be rate-limited. Connect a Sepolia-compatible wallet for signing and transactions.
+Hardhat Sepolia deployment uses `SEPOLIA_RPC_URL` and `SEPOLIA_PRIVATE_KEY` in the shell environment. Keep credentials out of source control. The Angular app accepts `QUOTE_PLOT_BACKEND_ORIGIN` and `QUOTE_PLOT_SEPOLIA_RPC_URL` as Vercel build environment variables. Set the backend origin to the Coolify HTTPS origin and set backend `FRONTEND_URL` to the exact Vercel origin. The RPC URL is public in the browser bundle, so restrict its key to the production frontend origin and allow that origin in the provider's CORS settings. Never put a wallet private key in frontend configuration. If the custom RPC URL is unset, local development falls back to ethers' default Sepolia providers, which may be rate-limited or blocked by browser CORS policy. Connect a Sepolia-compatible wallet for signing and transactions.
 
 ## Install
 
@@ -81,7 +85,7 @@ cd ../contracts && npm ci
 
 ## Run locally
 
-The backend needs a reachable configured database, initialized schema and tokens. Set at least `GEMINI_API_KEY` before starting it. Bright Data and Ethereum RPC features also need their corresponding credentials.
+The backend needs a reachable configured database, initialized schema and token rows. Set `GEMINI_API_KEY` before starting it because the agent router initializes Gemini during import. Bright Data and Ethereum RPC features need their corresponding credentials; missing optional feeds are represented as unavailable evidence. Backend startup also launches a background Playwright Chromium check/install and starts scheduled data jobs, so use a host that supports those dependencies and can reach the database.
 
 Terminal 1, from the repository root:
 
@@ -96,7 +100,7 @@ cd frontend
 npm start
 ```
 
-Open [http://localhost:4200](http://localhost:4200). Angular forwards `/api` and `/ws` to the backend at port 8000.
+Open [http://localhost:4200](http://localhost:4200). Angular forwards `/api` and `/ws/thoughts` to the backend at port 8000.
 
 Initialize/update database schema and seed data from the repository root:
 
@@ -163,4 +167,4 @@ Lucy endpoints include `POST /api/agent/reply`, `GET /api/agent/brightdata-statu
 
 ## CI and hosted deployment
 
-There are currently no repository GitHub Actions workflows or checked-in hosting configuration for deploying the backend, Angular app, or contracts. Validate each component with the commands above. Backend startup schedules background data jobs and attempts a Chromium availability/install check; ensure the hosting image supports Playwright if those scraping features are required.
+`frontend/vercel.json` configures only the Angular static frontend build. The backend and contracts have no checked-in production deployment pipeline. Configure the backend host, database, CORS origin, secrets, and Playwright support separately; configure Vercel's `QUOTE_PLOT_BACKEND_ORIGIN` and `QUOTE_PLOT_SEPOLIA_RPC_URL` build variables for the frontend. The RPC URL is public in the browser bundle and must be restricted by provider origin. Validate each component with the commands above before publishing. Backend startup schedules recurring data jobs, so run a single backend process unless the scheduler is moved to a dedicated worker.

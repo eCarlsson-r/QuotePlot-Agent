@@ -12,5 +12,5 @@ h2 { margin: .2rem 0 0; color: #f8fafc; font-size: 1rem; text-transform: upperca
 .copy-button:hover { color: #60a5fa; }
 .action-button { border-color: #2563eb; color: #60a5fa; font-size: .62rem; }
 .action-button:hover { background: rgba(37, 99, 235, .2); }
-:host ::ng-deep .terminal-card .mat-mdc-paginator { margin-top: .5rem; border-top: 1px solid #1e293b; background: transparent; color: #64748b; }
+:host ::ng-deep .terminal-card .mat-mdc-paginator { margin-top: .5rem; border-top: 1px solid #1e293b; background: transparent; }
 :host ::ng-deep .terminal-card .mat-mdc-paginator-container { min-height: 2.75rem; }

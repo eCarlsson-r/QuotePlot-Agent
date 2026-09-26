@@ -8,7 +8,6 @@ h2 { margin: .2rem 0 0; color: #f8fafc; font-size: 1rem; text-transform: upperca
 .deploy-button { border-color: #34d399; color: #34d399; font-size: .68rem; }
 .deploy-button:hover { background: rgba(52, 211, 153, .12); }
 .token-filter { width: 9rem; margin: 0; }
-:host ::ng-deep .creation-card .mat-mdc-form-field { --mdc-outlined-text-field-outline-color: #334155; --mdc-outlined-text-field-hover-outline-color: #60a5fa; --mdc-outlined-text-field-focus-outline-color: #2563eb; --mdc-outlined-text-field-label-text-color: #64748b; --mdc-outlined-text-field-input-text-color: #cbd5e1; }
 :host ::ng-deep .creation-card .mat-mdc-progress-bar { margin-top: .75rem; --mdc-linear-progress-active-indicator-color: #2563eb; --mdc-linear-progress-track-color: #1e293b; }
 
 @media (max-width: 650px) {
