@@ -10,28 +10,34 @@
     <span class="filter-label">BLOCK RANGE</span>
     <mat-form-field appearance="outline">
       <mat-label>From</mat-label>
-      <input matInput [(ngModel)]="from" (blur)="searchEvents()">
+      <input matInput type="text" inputmode="numeric" [(ngModel)]="from">
     </mat-form-field>
     <mat-form-field appearance="outline">
       <mat-label>To</mat-label>
-      <input matInput [(ngModel)]="to" (blur)="searchEvents()">
+      <input matInput type="text" inputmode="numeric" [(ngModel)]="to">
     </mat-form-field>
   </div>
   <div class="event-filters">
     <span class="filter-label">TOPICS</span>
     <mat-form-field appearance="outline">
       <mat-label>Owner</mat-label>
-      <input matInput [(ngModel)]="owner" (blur)="searchEvents()">
+      <input matInput [(ngModel)]="owner">
     </mat-form-field>
     <mat-form-field appearance="outline">
       <mat-label>Name</mat-label>
-      <input matInput [(ngModel)]="name" (blur)="searchEvents()">
+      <input matInput [(ngModel)]="name">
     </mat-form-field>
     <mat-form-field appearance="outline">
       <mat-label>Symbol</mat-label>
-      <input matInput [(ngModel)]="symbol" (blur)="searchEvents()">
+      <input matInput [(ngModel)]="symbol">
     </mat-form-field>
+    <button mat-flat-button class="search-events-button" type="button" [disabled]="isLoading" (click)="searchEvents()">
+      {{ isLoading ? 'Loading…' : 'Search events' }}
+    </button>
   </div>
+  <p class="event-status" *ngIf="errorMessage" role="alert">{{ errorMessage }}</p>
+  <p class="event-status" *ngIf="!errorMessage && !isLoading && eventList.data.length === 0">No creation events found in this block range.</p>
+  <p class="event-status" *ngIf="isLoading" aria-live="polite">Loading creation events…</p>
   <div class="table-scroll">
   <table mat-table [dataSource]="eventList" matSort #eventSort="matSort" class="terminal-table">
     <ng-container matColumnDef="blockNumber">
@@ -56,6 +62,7 @@
   <mat-paginator #eventPaginator
     [pageSize]="10"
     [pageSizeOptions]="[10, 20, 50, 100]"
+    aria-label="Creation event pages"
   >
   </mat-paginator>
 </mat-card>

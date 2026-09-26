@@ -50,6 +50,11 @@ mat-form-field { margin: 0; }
 .cdk-overlay-pane .mat-mdc-form-field .mat-mdc-input-element { font-size: .8rem; }
 .cdk-overlay-pane .mat-mdc-form-field-subscript-wrapper { min-height: 0; }
 
+/* Keep select menus readable on the dark app, including paginator menus rendered in the overlay. */
+.cdk-overlay-container .mat-mdc-select-panel { border: 1px solid #334155; background: #0b1220 !important; }
+.cdk-overlay-container .mat-mdc-option { color: #e2e8f0 !important; }
+.cdk-overlay-container .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) { background: #1e3a5f !important; }
+
 .form-dialog { padding: 1.35rem; }
 .form-dialog-header { display: flex; align-items: flex-start; gap: .85rem; }
 .form-dialog-icon { display: grid; flex: 0 0 2.35rem; height: 2.35rem; place-items: center; border: 1px solid #334155; border-radius: .65rem; font: 500 1.1rem/1 system-ui, sans-serif; }
