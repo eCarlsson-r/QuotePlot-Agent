@@ -25,7 +25,20 @@ export class SeedTokenFactoryService {
     try {
       //remove SeedTokenCreationListener set in token-list.component.ts
       this.seedTokenFactory?.removeAllListeners();
-      const address = await provider.resolveName('seed-token-factory.eth');
+      const config = window.__QUOTE_PLOT_CONFIG__;
+      const network = await provider.getNetwork();
+      const expectedChainId = BigInt(config?.chainId ?? 11155111);
+      if (network.chainId !== expectedChainId) {
+        this.seedTokenFactory = null;
+        this.changes.next(null);
+        return;
+      }
+
+      const address = config?.factoryAddress
+        ? ethers.getAddress(config.factoryAddress)
+        : config?.network === 'bscTestnet'
+          ? null
+          : await provider.resolveName('seed-token-factory.eth');
       if (address) {
         this.seedTokenFactory = new ethers.Contract(
           address,

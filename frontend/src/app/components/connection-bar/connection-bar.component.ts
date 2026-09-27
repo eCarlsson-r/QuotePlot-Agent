@@ -73,7 +73,7 @@ export class ConnectionBarComponent implements OnInit, OnDestroy {
     const walletconnect = await EthereumProvider.init({
       projectId: project_id,
       chains: [],
-      optionalChains: [1, 5, 11155111],
+      optionalChains: [this.providerService.getExpectedChainId()],
       showQrModal: true,
       metadata: {
         name: 'Mastering Solidity',
@@ -114,7 +114,7 @@ export class ConnectionBarComponent implements OnInit, OnDestroy {
     const walletconnect = await EthereumProvider.init({
       projectId: project_id,
       chains: [],
-      optionalChains: [1, 5, 11155111],
+      optionalChains: [this.providerService.getExpectedChainId()],
       showQrModal: true,
       metadata: {
         name: 'Mastering Solidity',

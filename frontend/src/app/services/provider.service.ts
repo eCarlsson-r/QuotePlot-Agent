@@ -22,14 +22,20 @@ export class ProviderService {
   private network: ethers.Network | null = null;
  
   private isEip1193Disconnect = false;
- 
+
+  private readonly targetNetwork = window.__QUOTE_PLOT_CONFIG__?.network ?? 'sepolia';
+  private readonly targetChainId = window.__QUOTE_PLOT_CONFIG__?.chainId ?? 11155111;
+
   constructor(
     private seedTokenFactoryService: SeedTokenFactoryService
   ) {
-    const rpcUrl = window.__QUOTE_PLOT_CONFIG__?.sepoliaRpcUrl;
-    this.defaultProvider = rpcUrl
-      ? new ethers.JsonRpcProvider(rpcUrl, 11155111)
-      : ethers.getDefaultProvider("sepolia");
+    const rpcUrl = window.__QUOTE_PLOT_CONFIG__?.rpcUrl;
+    const fallbackRpc = this.targetNetwork === 'bscTestnet'
+      ? 'https://bsc-testnet-dataseed.bnbchain.org'
+      : undefined;
+    this.defaultProvider = rpcUrl || fallbackRpc
+      ? new ethers.JsonRpcProvider(rpcUrl || fallbackRpc, this.targetChainId)
+      : ethers.getDefaultProvider('sepolia');
   }
  
   private connectListener = (connectInfo: { readonly chainId: string; }) => {
@@ -94,6 +100,7 @@ export class ProviderService {
     await this.provider.on('block', this.blockListener);
     this.blockNumber = null;
     await this.seedTokenFactoryService.reset(this.getProvider(), this.signer);
+    this.changes.next({ chainId: this.network.chainId.toString(), accounts: accounts ? [this.signer.address] : undefined });
   }
  
   public async disconnect() {
@@ -122,6 +129,18 @@ export class ProviderService {
  
   public getNetwork(): string {
     return `${this.network?.name}(${this.network?.chainId})`;
+  }
+
+  public getExpectedChainId(): number {
+    return this.targetChainId;
+  }
+
+  public getTargetNetworkName(): string {
+    return this.targetNetwork === 'bscTestnet' ? 'BSC Testnet' : 'Sepolia';
+  }
+
+  public isOnTargetNetwork(): boolean {
+    return this.network?.chainId === BigInt(this.targetChainId);
   }
 
   private removeWalletListeners(): void {

@@ -80,7 +80,7 @@ export class EventListComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       const latestBlock = await contract.runner?.provider?.getBlockNumber();
       if (latestBlock == null) {
-        throw new Error('Could not read the current Sepolia block. Check the RPC connection and CORS settings.');
+        throw new Error('Could not read the current block. Check the configured RPC connection and CORS settings.');
       }
 
       const to = this.parseBlock(this.to, latestBlock, 'To');

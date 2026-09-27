@@ -5,7 +5,8 @@
         <span class="section-kicker">Contract factory</span>
         <h2>Deploy asset</h2>
       </div>
-      <span class="section-count" *ngIf="canCreateNewToken()">SEPOLIA READY</span>
+      <span class="section-count" *ngIf="canCreateNewToken()">{{ targetNetworkName | uppercase }} READY</span>
+      <span class="section-count" *ngIf="providerService.isConnected() && !providerService.isOnTargetNetwork()">SWITCH TO {{ targetNetworkName | uppercase }}</span>
     </div>
     <div class="creation-actions">
     <span *ngIf="canCreateNewToken()">

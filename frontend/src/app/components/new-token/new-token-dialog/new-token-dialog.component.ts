@@ -4,6 +4,7 @@ import { MaterialDesignModule } from '../../../modules/material-design/material-
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { ProgressSpinnerService } from '../../../services/progress-spinner.service';
 import { SeedTokenFactoryService } from '../../../services/seed-token-factory.service';
+import { ProviderService } from '../../../services/provider.service';
  
 export interface NewToken {
   name: string;
@@ -26,7 +27,8 @@ export class NewTokenDialogComponent {
     public dialogRef: MatDialogRef<NewTokenDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: NewToken,
     private progressSpinnerService: ProgressSpinnerService,
-    private seedTokenFactoryService: SeedTokenFactoryService
+    private seedTokenFactoryService: SeedTokenFactoryService,
+    public providerService: ProviderService
   ) {}
 
   get canCreate(): boolean {

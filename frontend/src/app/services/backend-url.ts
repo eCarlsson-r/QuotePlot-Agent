@@ -2,7 +2,10 @@ declare global {
   interface Window {
     __QUOTE_PLOT_CONFIG__?: {
       backendOrigin?: string;
-      sepoliaRpcUrl?: string;
+      network?: 'sepolia' | 'bscTestnet';
+      chainId?: number;
+      rpcUrl?: string;
+      factoryAddress?: string;
     };
   }
 }

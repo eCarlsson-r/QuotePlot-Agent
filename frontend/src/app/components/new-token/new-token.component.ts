@@ -18,14 +18,19 @@ import { NewTokenDialogComponent } from './new-token-dialog/new-token-dialog.com
 })
 export class NewTokenComponent {
   constructor(
-    private providerService: ProviderService,
+    public providerService: ProviderService,
     public seedTokenFactoryService: SeedTokenFactoryService,
     private dialog: MatDialog
   ) {}
  
   canCreateNewToken() {
     return this.providerService.isConnected()
+        && this.providerService.isOnTargetNetwork()
         && (this.seedTokenFactoryService.get() != null);
+  }
+
+  get targetNetworkName(): string {
+    return this.providerService.getTargetNetworkName();
   }
  
   openNewTokenDialog() {

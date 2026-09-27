@@ -2,7 +2,7 @@
 
 Lucy is an AI agent that combines market intelligence, web intelligence and on-chain data to investigate crypto assets through natural language.
 
-QuotePlot Agent is an Indonesia Web3 Hackathon project. It presents Lucy's investigations and source evidence in an Angular application, alongside a separate wallet workspace for Sepolia token management.
+QuotePlot Agent is an Indonesia Web3 Hackathon project. It presents Lucy's investigations and source evidence in an Angular application, alongside a separate wallet workspace for testnet token management.
 
 ## Problem
 
@@ -12,14 +12,14 @@ Crypto research is fragmented across market indicators, news and social context,
 
 Ask Lucy about a crypto asset or market move in natural language. The backend gathers available information, identifies missing or insufficient sources, and returns an investigation with its evidence. Gemini can use read-only research tools and narrate the result; deterministic collection and analysis supply the evidence and a fallback response.
 
-The app also has a separate token-management workspace for inspecting token inventory and factory creation events, and managing tokens on Sepolia when the factory, ENS record, RPC endpoint, and wallet are configured. Lucy's investigation flow is read-only: it does not sign transactions or trade.
+The app also has a separate token-management workspace for inspecting token inventory and factory creation events, and managing tokens on a configured test network. Lucy's investigation flow is read-only: it does not sign transactions or trade.
 
 ## Architecture
 
 ```text
 Angular browser app
   ├─ Market and Lucy views ─ HTTPS / WebSocket ─> FastAPI backend
-  └─ Wallet and token views ─ wallet / JSON-RPC ─> Sepolia contracts
+  └─ Wallet and token views ─ wallet / JSON-RPC ─> configured testnet contracts
 
 Lucy investigation (backend)
   ├─ Market history and investor behavior ─> configured database
@@ -47,14 +47,14 @@ The Angular Lucy panel displays the response and evidence. Key endpoints include
 
 The investigation path uses Ethereum JSON-RPC to read the latest block and ERC-20 metadata for a contract resolved through `TokenMap`. This path is read-only and does not require a connected wallet.
 
-Token management is a separate Sepolia integration. The Hardhat project contains `SeedToken` and `SeedTokenFactory`. The browser wallet workspace requires:
+Token management is a separate EVM integration that can target Ethereum Sepolia or BSC Testnet. The Hardhat project contains `SeedToken` and `SeedTokenFactory`. BSC Testnet uses chain ID `97` and a configured factory address. Sepolia uses chain ID `11155111` and can resolve the factory through `seed-token-factory.eth`. The browser wallet workspace requires:
 
-- `SeedTokenFactory` deployed on Sepolia.
-- The Sepolia ENS name `seed-token-factory.eth` resolving to that factory address.
-- A browser-accessible Sepolia RPC endpoint with the frontend origin allowed by the provider.
-- A wallet connected to Sepolia (chain ID `11155111`) for on-chain write actions.
+- `SeedTokenFactory` deployed on the selected network.
+- For Sepolia, `seed-token-factory.eth` resolving to the factory, or a configured factory address. For BSC Testnet, configure the factory address directly.
+- A browser-accessible RPC endpoint with the frontend origin allowed by the provider.
+- A wallet connected to the selected network for on-chain write actions.
 
-The frontend does not contain a deployer private key. Deployment and live contract addresses must be verified separately; no factory address is asserted here. Hardhat tests use a simulated local chain and do not prove a live Sepolia deployment.
+The frontend does not contain a deployer private key. Deployment and live contract addresses must be verified separately; no factory address is asserted here. Hardhat tests use a simulated local chain and do not prove a live testnet deployment.
 
 ## Market Intelligence
 
@@ -76,7 +76,7 @@ Market analysis combines stored market history and investor-behavior data, a loc
 - A reachable MySQL-compatible database for the backend.
 - A Gemini API key to initialize Lucy's agent router.
 - Optional Bright Data and Ethereum RPC credentials for those evidence sources.
-- For Sepolia contract deployment: a Sepolia RPC endpoint and a funded deployer account; for wallet management, a Sepolia wallet.
+- For testnet deployment: a BSC Testnet or Sepolia RPC endpoint and funded testnet deployer; for wallet management, a wallet on the selected network.
 
 ### Environment variables
 
@@ -107,9 +107,12 @@ Frontend build variables for Vercel:
 | Variable | Purpose |
 | --- | --- |
 | `QUOTE_PLOT_BACKEND_ORIGIN` | Backend origin only, e.g. `https://quoteplot.carlssonstudio.com` (no `/api` suffix). |
-| `QUOTE_PLOT_SEPOLIA_RPC_URL` | Browser-accessible Sepolia HTTPS RPC endpoint. It is public in the built JavaScript; restrict any provider key to the frontend origin. |
+| `QUOTE_PLOT_NETWORK` | `sepolia` (default) or `bscTestnet`; controls the wallet/contract UI, not Lucy's Ethereum evidence source. |
+| `QUOTE_PLOT_SEPOLIA_RPC_URL` | Optional browser-accessible Sepolia HTTPS RPC endpoint. |
+| `QUOTE_PLOT_BSC_TESTNET_RPC_URL` | Optional browser-accessible BSC Testnet HTTPS RPC; defaults to `https://bsc-testnet-dataseed.bnbchain.org`. |
+| `QUOTE_PLOT_FACTORY_ADDRESS` | Deployed factory address; required for BSC Testnet, optional for Sepolia when ENS is configured. |
 
-`npm run build` runs a prebuild script that writes these values into `frontend/public/quoteplot-config.js`. Use plain URL strings, not Markdown links. Set Vercel variables for the appropriate deployment environment and rebuild after changing them. Keep `SEPOLIA_PRIVATE_KEY` on the deployment operator's machine only; Hardhat uses it for contract deployment. Never commit credentials or put a wallet private key in frontend configuration.
+`npm run build` runs a prebuild script that writes these values into `frontend/public/quoteplot-config.js`. Use plain URL strings, not Markdown links. Set Vercel variables for the appropriate deployment environment and rebuild after changing them. RPC URLs are public in the browser bundle; restrict provider keys to the frontend origin. Keep deployer private keys out of Vercel and browser configuration. Never commit credentials.
 
 ### Install and run locally
 
@@ -172,16 +175,29 @@ npx hardhat compile
 npx hardhat test
 ```
 
-Hardhat tests run on a local simulated chain; they do not require Sepolia credentials or verify a live deployment.
+Hardhat tests run on a local simulated chain; they do not require testnet credentials or verify a live deployment.
+
+### Deploy to BSC Testnet
+
+The deployment script sends transactions. Use a testnet-funded deployer account and check the selected network and deployer address before running it.
+
+```bash
+cd contracts
+export BSC_TESTNET_RPC_URL="https://bsc-testnet-dataseed.bnbchain.org"
+export BSC_TESTNET_PRIVATE_KEY="0x..." # keep local; never commit
+npx hardhat run scripts/deploy.ts --network bscTestnet
+```
+
+BSC Testnet uses chain ID `97` and native test currency `tBNB`. Save the printed factory address for the submission form and Vercel `QUOTE_PLOT_FACTORY_ADDRESS`. Configure Vercel with `QUOTE_PLOT_NETWORK=bscTestnet` and a browser-accessible RPC endpoint, then rebuild. Connect a wallet on BSC Testnet to inspect inventory, create tokens, and query creation events. This path does not use Sepolia ENS. See [BNB Chain wallet configuration](https://docs.bnbchain.org/bnb-smart-chain/developers/wallet-configuration/) for current network details.
 
 ## Demo
 
 ### Preflight
 
 - Configure backend `GEMINI_API_KEY`, database, `ETH_RPC_URL`, and `FRONTEND_URL`. Configure Bright Data credentials if live web context will be shown.
-- Configure Vercel `QUOTE_PLOT_BACKEND_ORIGIN` and `QUOTE_PLOT_SEPOLIA_RPC_URL`, then rebuild. Confirm the API responds at `/docs`, `/api/market/tickers`, and `/api/agent/brightdata-status`, and that `/ws/thoughts` connects.
+- Configure Vercel `QUOTE_PLOT_BACKEND_ORIGIN`, `QUOTE_PLOT_NETWORK`, the corresponding RPC variable, and (for BSC Testnet) `QUOTE_PLOT_FACTORY_ADDRESS`, then rebuild. Confirm the API responds at `/docs`, `/api/market/tickers`, and `/api/agent/brightdata-status`, and that `/ws/thoughts` connects.
 - Confirm the database contains current market rows and an active Ethereum `TokenMap` entry for the symbol you will demo.
-- For wallet UI, verify the Sepolia RPC, deployed factory, ENS resolution for `seed-token-factory.eth`, and a wallet on chain ID `11155111`. Skip this portion if those checks are incomplete.
+- For BSC Testnet wallet UI, verify the factory on BscScan, configure its address and the RPC, and connect a wallet on chain ID `97`. For Sepolia, verify the factory/ENS resolution and connect a wallet on chain ID `11155111`. Skip either segment if its checks are incomplete.
 - Clear stale filters. Creation-event searches use a recent block window; choose a valid range and click **Search events**.
 - Keep API keys, private keys, and account details out of the recording. Do not present unavailable evidence as a negative signal or show unverified deployment addresses.
 
@@ -190,9 +206,9 @@ Hardhat tests run on a local simulated chain; they do not require Sepolia creden
 1. **Problem and product:** Show the market panel and explain that Lucy brings market, model, web, and chain evidence into one investigation.
 2. **Lucy investigation:** Ask Lucy to investigate a symbol confirmed in the deployed database. Show the response and evidence rows; identify which sources are available, unavailable, or insufficient.
 3. **Blockchain evidence:** Explain that the backend resolves the symbol through an active `TokenMap` entry and reads the mapped contract via Ethereum JSON-RPC; Lucy does not invent addresses or sign transactions.
-4. **Sepolia workspace, only if verified:** Show the wallet, inventory, and matching factory event. Keep it read-only unless deliberately demonstrating an approved test transaction.
+4. **BSC Testnet workspace, only if verified:** Show the wallet, inventory, and matching factory event. Keep it read-only unless deliberately demonstrating a test transaction.
 5. **Close:** Explain that deterministic backend collection and fallback support Gemini's narration, while the user can inspect the evidence and missing sources.
 
 For a pitch deck, cover the fragmented research problem, Lucy's product flow, the evidence aggregation architecture, the mapped Ethereum read path, limitations/safety boundaries, and a demo using only verified live values. Check the [official hackathon page](https://luma.com/pcc699dv) and [submission portal](https://indonesiaweb3hack.xyz) for current deadline and submission requirements. External submissions and video uploads are completed by the project team; this repository does not submit them automatically.
 
-The project currently serves its frontend at [quote-plot-agent.vercel.app](https://quote-plot-agent.vercel.app/) and backend at [quoteplot.carlssonstudio.com](https://quoteplot.carlssonstudio.com/), as supplied by the project owner. These URLs do not by themselves verify every integration, data feed, Sepolia deployment, or wallet flow.
+The project currently serves its frontend at [quote-plot-agent.vercel.app](https://quote-plot-agent.vercel.app/) and backend at [quoteplot.carlssonstudio.com](https://quoteplot.carlssonstudio.com/), as supplied by the project owner. These URLs do not by themselves verify every integration, data feed, testnet deployment, or wallet flow.
