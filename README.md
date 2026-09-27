@@ -1,81 +1,121 @@
 # QuotePlot Agent
 
-QuotePlot Agent is a market-intelligence demo with an Angular browser app, a FastAPI backend, and Solidity token contracts. Lucy combines deterministic data collection and analysis with Gemini narration. The app includes wallet and token-management screens for Sepolia; using them requires a separately deployed factory and a wallet on Sepolia.
+Lucy is an AI agent that combines market intelligence, web intelligence and on-chain data to investigate crypto assets through natural language.
 
-The Angular frontend is publicly reachable at [quote-plot-agent.vercel.app](https://quote-plot-agent.vercel.app/). The project owner reports that the backend has deployed successfully, but its public origin was not available during the September 26, 2026 readiness check. The live frontend bundle had no configured backend origin or custom Sepolia RPC, so API, Lucy, and wallet flows have not yet passed an end-to-end check. Live Sepolia token management also requires a deployed factory, a Sepolia ENS record, a browser-accessible RPC endpoint, and a Sepolia wallet. No hackathon submission is claimed.
+QuotePlot Agent is an Indonesia Web3 Hackathon project. It brings those sources together in an evidence-led investigation, with an Angular dashboard for Lucy's analysis and a separate wallet workspace for Sepolia token management.
 
-## Architecture and investigation flow
+## Problem
 
-```text
-Angular app
-  ├─ market, token and wallet views ── HTTP/WebSocket ──> FastAPI
-  └─ wallet/provider ── JSON-RPC ──> Sepolia SeedTokenFactory and ERC-20s
+Crypto research is fragmented. Market indicators, news and social context, machine-learning signals, and blockchain data are usually inspected in separate tools. A reader must combine them manually and distinguish observed data from unsupported claims.
 
-Lucy token investigation (FastAPI)
-  ├─ market history + investor-behavior context ──> local database
-  ├─ ML market prediction ────────────────────────> local model
-  ├─ recent news ─────────────────────────────────> Bright Data SERP API
-  ├─ social and macro context ────────────────────> Bright Data MCP
-  ├─ on-chain lookup ─────────────────────────────> TokenMap → Ethereum JSON-RPC
-  └─ source evidence + context ───────────────────> Gemini narration, with deterministic fallback
-```
+## Solution
 
-For a token question, the backend identifies a symbol and gathers price history and behavior, runs the local market model, and requests web context. The on-chain reader resolves the symbol through an active Ethereum `TokenMap` entry before calling the configured Ethereum JSON-RPC endpoint for the latest block and ERC-20 metadata. It never invents a contract address. Results are combined into evidence records with explicit available, unavailable, or insufficient status. Gemini can use its read-only on-chain and Bright Data tools to narrate findings; if Gemini is not available for that request, Lucy falls back to the collected deterministic insight. The Angular Lucy panel displays the returned reply and source evidence. The integration does not sign transactions or trade on a user's behalf.
+Ask Lucy a question about a token or market movement. The backend gathers available evidence from configured sources, labels each source as available, unavailable, or insufficient, and returns an investigation with the supporting evidence. Gemini can choose read-only research tools and narrate the results; deterministic backend collection and analysis provide the investigation data and fallback response.
 
-The Angular app is the active frontend. The older root `templates/` and `static/` content remains in the repository but is not served by FastAPI. In local development, the Angular proxy forwards `/api` and `/ws/thoughts` to `localhost:8000`. In production, the build-generated `quoteplot-config.js` sends HTTP and WebSocket traffic to the origin supplied through `QUOTE_PLOT_BACKEND_ORIGIN` over HTTPS/WSS.
+The app also includes an independent wallet workspace to inspect seed-token inventory and factory creation events, and to create or manage tokens on Sepolia when the factory, ENS record, RPC, and wallet are configured. Lucy's investigation path is read-only: it does not sign transactions or trade.
 
-See [the architecture notes](docs/ARCHITECTURE.md) for component responsibilities, the token-investigation request sequence, and deployment boundaries. See the [demo script](docs/DEMO.md) for the live walkthrough and [submission checklist](docs/SUBMISSION.md) for release gates and copy-ready project details.
-
-## Repository layout
+## Architecture
 
 ```text
-backend/                 FastAPI routes, Lucy, data providers, database and ML logic
-backend/blockchain/      Read-only Ethereum JSON-RPC and TokenMap resolver
-frontend/                Angular market, Lucy, wallet and token-management UI
-contracts/               SeedToken, SeedTokenFactory, Hardhat tests and deploy script
-templates/, static/      Legacy frontend files retained during migration
+Angular browser app
+  ├─ market and Lucy views ── HTTPS / WebSocket ──> FastAPI backend
+  └─ wallet and token views ── wallet provider / JSON-RPC ──> Sepolia contracts
+
+Lucy investigation (backend)
+  ├─ market history and investor behavior ──> configured database
+  ├─ ML market prediction ──────────────────> local model
+  ├─ news and web context ─────────────────> Bright Data services
+  ├─ token resolution and chain evidence ──> Ethereum TokenMap → JSON-RPC
+  └─ evidence + context ───────────────────> Gemini narration / deterministic fallback
 ```
 
-## Requirements
+The Angular application is the active frontend. The legacy root `templates/` and `static/` directories are not served by FastAPI. In local development, Angular proxies `/api` and `/ws/thoughts` to `localhost:8000`. In production, the frontend's generated `quoteplot-config.js` supplies the backend origin for HTTPS and secure WebSocket requests. The backend must allow the exact frontend origin through `FRONTEND_URL`.
 
-- Python 3.11 or newer
-- Node.js and npm (frontend lockfile uses npm)
-- MySQL-compatible database for the backend
-- Gemini and Bright Data credentials for the full Lucy/live-web experience
-- Ethereum JSON-RPC URL for on-chain evidence
-- For a Sepolia deployment: an RPC URL, a Sepolia-funded deployer account, and a wallet/browser extension configured for Sepolia
+See [the architecture notes](docs/ARCHITECTURE.md) for component responsibilities, the request sequence, and deployment boundaries.
 
-No live deployment or hosted service is implied by this repository. The Sepolia deploy command below sends transactions only when explicitly run with credentials.
+## AI Agent
 
-## Configuration
+Lucy combines deterministic investigation steps with Gemini's agentic tool use:
 
-Copy the example and fill in credentials locally:
+1. The backend identifies the token symbol and gathers market history and investor-behavior data from its configured database.
+2. A local ML model contributes a prediction where its inputs and model are available.
+3. Bright Data can provide news and web or social context when its credentials and services are configured.
+4. The on-chain resolver looks up the symbol in the active Ethereum `TokenMap`; it does not let the model invent a contract address.
+5. The backend combines the source results into evidence records and gives Lucy the context for a natural-language response. Gemini may invoke the read-only on-chain and web tools. If Gemini fails during a request, the deterministic investigation can still return its collected insight.
+
+Evidence availability depends on database contents, credentials, provider access, and the configured chain endpoint. Missing feeds should be presented as unavailable rather than treated as confirmed findings. The Angular Lucy panel presents the response and its source evidence. Key endpoints include `POST /api/agent/reply`, `GET /api/agent/brightdata-status`, and WebSocket `/ws/thoughts`.
+
+## Blockchain Integration
+
+The investigation path uses an Ethereum JSON-RPC endpoint to read chain metadata and ERC-20 information for a contract resolved through `TokenMap`. It is read-only and does not require a user's wallet.
+
+The token-management workspace is a separate Sepolia integration. The Hardhat project contains `SeedToken` and `SeedTokenFactory`; its local tests use a simulated chain. The browser wallet workspace requires:
+
+- A deployed `SeedTokenFactory` on Sepolia.
+- The Sepolia ENS name `seed-token-factory.eth` resolving to that factory address.
+- A browser-accessible Sepolia RPC endpoint with the frontend origin allowed by the provider.
+- A wallet connected to Sepolia (chain ID `11155111`) for actions that write to the chain.
+
+The frontend does not contain a deployer private key. Do not expose private keys through Vercel variables or browser configuration. Deployment and live contract addresses must be verified separately; the repository does not publish or assert a factory address.
+
+## Market Intelligence
+
+Market intelligence is assembled from the application's stored market history and investor-behavior data, a local ML prediction, and optional news/web context from Bright Data. Lucy returns the source evidence alongside its explanation so users can see which inputs were available. Freshness and completeness depend on the backend database jobs and external providers; the app should not be treated as a guaranteed real-time market feed.
+
+## Tech Stack
+
+- **Frontend:** Angular, Angular Material, TypeScript, ethers.js, WalletConnect.
+- **Backend:** Python, FastAPI, SQLAlchemy, Gemini, local ML components, Bright Data integrations, Ethereum JSON-RPC.
+- **Contracts:** Solidity, Hardhat, `SeedToken`, and `SeedTokenFactory`.
+- **Hosting:** Angular frontend on Vercel and backend on Coolify, as configured by the project owner. Hosting configuration is external to the repository; see the runtime environment variables below.
+
+## Setup
+
+### Requirements
+
+- Python 3.11 or newer.
+- Node.js and npm.
+- A reachable MySQL-compatible database for the backend.
+- A Gemini API key to initialize Lucy's agent router.
+- Optional Bright Data and Ethereum RPC credentials for those evidence sources.
+- For Sepolia contract deployment: a Sepolia RPC endpoint, a funded deployer account, and a Sepolia wallet.
+
+### Environment variables
+
+Copy the example file and fill in backend values locally:
 
 ```bash
 cp env.example .env
 ```
 
-Backend environment variables:
+Backend configuration:
 
 | Variable | Purpose |
 | --- | --- |
-| `GEMINI_API_KEY` | Required at backend import for Gemini Lucy narration and tool calling. If Gemini fails during a request, token investigations return their collected deterministic insight. |
-| `BRIGHTDATA_API_KEY` | Bright Data SERP, Web Unlocker, and MCP access; `BRIGHTDATA_TOKEN` is also accepted for MCP. |
+| `GEMINI_API_KEY` | Required when the backend initializes Lucy's Gemini tools and narration. |
+| `BRIGHTDATA_API_KEY` | Bright Data SERP, Web Unlocker, and MCP access. `BRIGHTDATA_TOKEN` is also accepted for MCP. |
 | `BRIGHTDATA_CUSTOMER_ID` | Bright Data account identifier for API access. |
 | `BRIGHTDATA_SERP_ZONE` | Bright Data SERP API zone. |
 | `BRIGHTDATA_UNLOCKER_ZONE` | Optional Web Unlocker zone; defaults to `web_unlocker`. |
 | `BRIGHTDATA_BROWSER_ZONE` | Optional Scraping Browser zone; defaults to `scraping_browser`. |
-| `PYTH_HERMES_API_KEY` | Optional Pyth Hermes credential when the provider requires authentication. |
-| `ETH_RPC_URL` | Ethereum JSON-RPC endpoint used by Lucy's read-only on-chain evidence path. |
-| `DB_URL` | Optional complete SQLAlchemy database URL. When unset, use `DB_USER`, `DB_PASS`, `DB_HOST`, `DB_PORT`, and `DB_NAME` (defaults: root, empty password, localhost, 3306, quoteplot). |
-| `FRONTEND_URL` | Exact production browser origin allowed by FastAPI CORS. Required for the cross-origin Vercel frontend; the local Angular proxy does not need it. |
-| `PORT` | Optional backend port for direct module startup; defaults to 80. The documented local command explicitly uses 8000. |
+| `PYTH_HERMES_API_KEY` | Optional Pyth Hermes credential, when required by the provider. |
+| `ETH_RPC_URL` | JSON-RPC URL used by Lucy's read-only on-chain evidence integration. |
+| `DB_URL` | Optional full SQLAlchemy URL. Otherwise set `DB_USER`, `DB_PASS`, `DB_HOST`, `DB_PORT`, and `DB_NAME` (defaults: root, empty password, localhost, 3306, `quoteplot`). |
+| `FRONTEND_URL` | Exact browser origin allowed by backend CORS, for example `https://quote-plot-agent.vercel.app`. |
+| `PORT` | Optional backend port; defaults to 80. The local command below explicitly uses 8000. |
 
-Hardhat Sepolia deployment uses `SEPOLIA_RPC_URL` and `SEPOLIA_PRIVATE_KEY` in the shell environment. Keep credentials out of source control. The Angular app accepts `QUOTE_PLOT_BACKEND_ORIGIN` and `QUOTE_PLOT_SEPOLIA_RPC_URL` as Vercel build environment variables. Set the backend origin to the Coolify HTTPS origin and set backend `FRONTEND_URL` to the exact Vercel origin. The RPC URL is public in the browser bundle, so restrict its key to the production frontend origin and allow that origin in the provider's CORS settings. Never put a wallet private key in frontend configuration. If the custom RPC URL is unset, local development falls back to ethers' default Sepolia providers, which may be rate-limited or blocked by browser CORS policy. Connect a Sepolia-compatible wallet for signing and transactions.
+Frontend build variables (Vercel):
 
-## Install
+| Variable | Purpose |
+| --- | --- |
+| `QUOTE_PLOT_BACKEND_ORIGIN` | Backend origin only, for example `https://quoteplot.carlssonstudio.com` (no `/api` suffix). |
+| `QUOTE_PLOT_SEPOLIA_RPC_URL` | Browser-accessible Sepolia HTTPS RPC endpoint used by wallet/contract UI. It is public in the built JavaScript; restrict the provider key to the frontend origin. |
 
-Run these from the repository root:
+`npm run build` runs a prebuild script that writes these values into `frontend/public/quoteplot-config.js`. Use plain URL strings, not Markdown links. Set Vercel variables for the appropriate deployment environment and rebuild after changing them. Keep `SEPOLIA_PRIVATE_KEY` on the deployment operator's machine only; Hardhat uses it for contract deployment. Never commit credentials.
+
+### Install and run locally
+
+From the repository root:
 
 ```bash
 python3 -m pip install -r requirements.txt
@@ -83,37 +123,31 @@ cd frontend && npm ci
 cd ../contracts && npm ci
 ```
 
-## Run locally
-
-The backend needs a reachable configured database, initialized schema and token rows. Set `GEMINI_API_KEY` before starting it because the agent router initializes Gemini during import. Bright Data and Ethereum RPC features need their corresponding credentials; missing optional feeds are represented as unavailable evidence. Backend startup also launches a background Playwright Chromium check/install and starts scheduled data jobs, so use a host that supports those dependencies and can reach the database.
-
-Terminal 1, from the repository root:
+Start the backend from the repository root (it needs the configured database, schema, and token rows):
 
 ```bash
 python3 -m uvicorn backend.main:app --reload --port 8000
 ```
 
-Terminal 2:
+In another terminal, start the Angular app:
 
 ```bash
 cd frontend
 npm start
 ```
 
-Open [http://localhost:4200](http://localhost:4200). Angular forwards `/api` and `/ws/thoughts` to the backend at port 8000.
-
-Initialize/update database schema and seed data from the repository root:
+Open [http://localhost:4200](http://localhost:4200). Initialize/update the database schema and seed data from the repository root as needed:
 
 ```bash
 python3 -m backend.migrate_db
 python3 -m backend.seed_data
 ```
 
-The seeder pulls provider data and therefore needs working external access and credentials for providers that require authentication.
+The seeder fetches provider data and may require external access and provider credentials. Backend startup also checks/installs Playwright Chromium and starts scheduled data jobs; use a host that supports those dependencies and run a single backend process unless scheduled jobs are moved to a dedicated worker.
 
-## Build and validation
+### Build and test
 
-Backend deterministic tests (run at the repository root):
+Backend tests and syntax check, from repository root:
 
 ```bash
 python3 -m unittest \
@@ -121,15 +155,10 @@ python3 -m unittest \
   backend.blockchain.test_ethereum \
   backend.blockchain.test_token_intelligence \
   backend.routers.test_agent_investigation -v
-```
-
-Backend syntax check:
-
-```bash
 python3 -m compileall -q backend
 ```
 
-Angular production build and unit tests:
+Frontend build and tests:
 
 ```bash
 cd frontend
@@ -137,7 +166,7 @@ npm run build
 npm test -- --watch=false
 ```
 
-Hardhat compile and local deterministic contract tests:
+Hardhat compile and local contract tests:
 
 ```bash
 cd contracts
@@ -145,11 +174,13 @@ npx hardhat compile
 npx hardhat test
 ```
 
-The Hardhat tests use the local simulated chain and do not require Sepolia, credentials, or external accounts.
+Hardhat tests run on a local simulated chain and do not require Sepolia credentials or a live deployment.
 
-## Sepolia deployment
+### Deployment expectations
 
-Export deployment credentials in the shell, then run from `contracts/`:
+The project currently serves its frontend at [quote-plot-agent.vercel.app](https://quote-plot-agent.vercel.app/) and its backend at [quoteplot.carlssonstudio.com](https://quoteplot.carlssonstudio.com/), as provided by the project owner. These URLs do not by themselves verify every integration or hosted data feed. Vercel builds the Angular static frontend; configure the backend host, database, CORS, secrets, and Playwright dependencies separately on Coolify. There is no checked-in automated production deployment pipeline for the backend or contracts.
+
+To deploy the factory manually, from `contracts/`:
 
 ```bash
 export SEPOLIA_RPC_URL="https://your-sepolia-rpc-endpoint"
@@ -157,14 +188,10 @@ export SEPOLIA_PRIVATE_KEY="0x..."
 npx hardhat run scripts/deploy.ts --network sepolia
 ```
 
-The script deploys `SeedTokenFactory`, creates one `Seed Token (SEED)` through it, and prints both addresses after mining. This repository does not configure a production deployment pipeline, commit deployment addresses, or verify a live Sepolia deployment. Before the Angular token-management views can find the factory, configure the Sepolia ENS name `seed-token-factory.eth` to resolve to the printed factory address. Use a Sepolia wallet (chain ID `11155111`) for token creation, minting and ownership actions.
+The script deploys `SeedTokenFactory`, creates a `Seed Token (SEED)`, and prints the addresses. Configure the Sepolia ENS record to resolve to the printed factory address before using the browser token-management workspace. Running the deploy command sends on-chain transactions.
 
-## HTTP and WebSocket API
+## Demo
 
-Market endpoints include `GET /api/market/tickers`, `GET /api/market/history/{symbol}`, `GET /api/market/insight/{symbol}`, and `GET /api/market/web3-list`.
+Open the [deployed frontend](https://quote-plot-agent.vercel.app/) and use Lucy to ask about a token or market move. A useful demo explains which market, web, ML, and on-chain evidence is available and points out any source reported unavailable. For the wallet workspace, connect a Sepolia wallet only after verifying that the factory is deployed and `seed-token-factory.eth` resolves correctly. The token investigation itself does not need a wallet.
 
-Lucy endpoints include `POST /api/agent/reply`, `GET /api/agent/brightdata-status`, `GET /api/agent/token-stats/{symbol}`, and WebSocket `/ws/thoughts`. Token investigation replies may include an `evidence` array for market history, ML prediction, web research and Ethereum on-chain sources.
-
-## CI and hosted deployment
-
-`frontend/vercel.json` configures only the Angular static frontend build. The backend and contracts have no checked-in production deployment pipeline. Configure the backend host, database, CORS origin, secrets, and Playwright support separately; configure Vercel's `QUOTE_PLOT_BACKEND_ORIGIN` and `QUOTE_PLOT_SEPOLIA_RPC_URL` build variables for the frontend. The RPC URL is public in the browser bundle and must be restricted by provider origin. Validate each component with the commands above before publishing. Backend startup schedules recurring data jobs, so run a single backend process unless the scheduler is moved to a dedicated worker.
+See the [demo walkthrough](docs/DEMO.md) for a narrated sequence and preflight checks. The [submission checklist](docs/SUBMISSION.md) contains copy-ready project details and release checks. External hackathon submissions must be completed by the project team; this repository does not submit them automatically.
