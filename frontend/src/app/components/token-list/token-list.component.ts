@@ -46,6 +46,11 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
  
   private changes: Subscription | null = null;
   private pendingFactories: any[] = [];
+  private eventPollingTimer: ReturnType<typeof setTimeout> | null = null;
+  private eventPollingFactory: any = null;
+  private lastScannedBlock: number | null = null;
+  private eventPollDelay = 15_000;
+  private readonly maxRpcBlockSpan = 9_999;
  
   constructor(
     public seedTokenFactoryService: SeedTokenFactoryService,
@@ -54,13 +59,16 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
     private clipboard: Clipboard
   ) {}
  
-  public SeedTokenCreationListener = async (event: any) => {
+  private appendCreatedToken = async (event: any, factory: any) => {
     const tokenAddress = event.args[0];
     const owner = event.args[1];
  
     const tokenList = this.seedTokenFactoryService.tokenList.data;
+    if (tokenList.some(token => token.address.toLowerCase() === tokenAddress.toLowerCase())) {
+      return;
+    }
  
-    const signer: any = this.seedTokenFactoryService.get().runner;
+    const signer: any = factory.runner;
     const signerAddress = signer?.address;
  
     const contract = new ethers.Contract(
@@ -77,8 +85,7 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
       contract
     );
  
-    tokenList.push(token);
-    this.seedTokenFactoryService.tokenList.data = tokenList;
+    this.seedTokenFactoryService.tokenList.data = [...tokenList, token];
   };
  
   ngAfterViewInit(): void {
@@ -89,15 +96,6 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
           this.consumeAndUpdate();
         } //else another consumeAndUpdate() call is still running
  
-        if (factory) {
-          const filter = factory.filters.SeedTokenCreation(
-            null, null, null, null
-          );
-          factory.on(
-            filter,
-            this.SeedTokenCreationListener
-          );
-        }
       }
     );
   }
@@ -107,6 +105,7 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
       //we only care about the last pending factory
       const length = this.pendingFactories.length;
       const lastFactory = this.pendingFactories[length - 1];
+      this.stopEventPolling();
       this.updateTokenList(lastFactory).then(() => {
         //remove all pending factories up to the processed factory
         this.pendingFactories = this.pendingFactories.slice(length);
@@ -122,6 +121,13 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
   }
  
   async updateTokenList(factory: any) {
+    const initialBlock = factory
+      ? await factory.runner?.provider?.getBlockNumber()
+      : null;
+    if (factory && initialBlock == null) {
+      throw new Error('Could not read the current block to monitor token creation events.');
+    }
+
     const tokens: Token[] = [];
     this.paginator.length = tokens.length;
  
@@ -165,7 +171,61 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
       }
       this.seedTokenFactoryService.tokenIndex = tokenCount;
       this.providerService.changes.next({});
+      this.startEventPolling(factory, initialBlock!);
     }
+  }
+
+  private startEventPolling(factory: any, initialBlock: number): void {
+    this.stopEventPolling();
+    this.eventPollingFactory = factory;
+    this.lastScannedBlock = initialBlock;
+    this.eventPollDelay = 15_000;
+    this.scheduleEventPoll(factory, this.eventPollDelay);
+  }
+
+  private scheduleEventPoll(factory: any, delay: number): void {
+    this.eventPollingTimer = setTimeout(() => {
+      void this.pollForCreatedTokens(factory);
+    }, delay);
+  }
+
+  private async pollForCreatedTokens(factory: any): Promise<void> {
+    if (factory !== this.eventPollingFactory || this.lastScannedBlock == null) return;
+
+    try {
+      const provider = factory.runner?.provider;
+      if (!provider) throw new Error('No provider is available for token event polling.');
+
+      const latestBlock = await provider.getBlockNumber();
+      const fromBlock = this.lastScannedBlock + 1;
+      const toBlock = Math.min(latestBlock, fromBlock + this.maxRpcBlockSpan);
+      if (fromBlock <= toBlock) {
+        const filter = factory.filters.SeedTokenCreation(null, null, null, null);
+        const events = await factory.queryFilter(filter, fromBlock, toBlock);
+        if (factory !== this.eventPollingFactory) return;
+
+        for (const event of events) {
+          await this.appendCreatedToken(event, factory);
+        }
+        this.lastScannedBlock = toBlock;
+      }
+
+      this.eventPollDelay = 15_000;
+    } catch (error) {
+      this.eventPollDelay = Math.min(this.eventPollDelay * 2, 120_000);
+      console.warn(`Token event poll failed; retrying in ${this.eventPollDelay / 1000}s.`, error);
+    }
+
+    if (factory === this.eventPollingFactory) {
+      this.scheduleEventPoll(factory, this.eventPollDelay);
+    }
+  }
+
+  private stopEventPolling(): void {
+    if (this.eventPollingTimer) clearTimeout(this.eventPollingTimer);
+    this.eventPollingTimer = null;
+    this.eventPollingFactory = null;
+    this.lastScannedBlock = null;
   }
  
   private async getToken(
@@ -196,6 +256,7 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
  
   ngOnDestroy(): void {
     this.changes?.unsubscribe();
+    this.stopEventPolling();
   }
  
   copyToClipboard(value: string) {
