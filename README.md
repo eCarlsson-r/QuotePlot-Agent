@@ -51,8 +51,10 @@ Token management is a separate EVM integration that can target Ethereum Sepolia 
 
 - `SeedTokenFactory` deployed on the selected network.
 - For Sepolia, `seed-token-factory.eth` resolving to the factory, or a configured factory address. For BSC Testnet, configure the factory address directly.
-- A browser-accessible RPC endpoint with the frontend origin allowed by the provider.
+- A browser-accessible read RPC endpoint with the frontend origin allowed by the provider. The connected wallet supplies transaction signing; read calls use the configured frontend RPC.
 - A wallet connected to the selected network for on-chain write actions.
+
+The wallet chain must match `QUOTE_PLOT_NETWORK` (`11155111` for Sepolia or `97` for BSC Testnet). If they differ, the factory view is unavailable and the token inventory is empty until the wallet switches networks. Creation-event history is loaded only after clicking **Search events**. The token inventory checks for new creation events every 15 seconds, scans at most 10,000 blocks per request, and backs off to 120 seconds after RPC errors.
 
 The frontend does not contain a deployer private key. Deployment and live contract addresses must be verified separately; no factory address is asserted here. Hardhat tests use a simulated local chain and do not prove a live testnet deployment.
 
@@ -107,12 +109,12 @@ Frontend build variables for Vercel:
 | Variable | Purpose |
 | --- | --- |
 | `QUOTE_PLOT_BACKEND_ORIGIN` | Backend origin only, e.g. `https://quoteplot.carlssonstudio.com` (no `/api` suffix). |
-| `QUOTE_PLOT_NETWORK` | `sepolia` (default) or `bscTestnet`; controls the wallet/contract UI, not Lucy's Ethereum evidence source. |
+| `QUOTE_PLOT_NETWORK` | Exact value `sepolia` (default) or `bscTestnet`; controls the wallet/contract UI, not Lucy's Ethereum evidence source. |
 | `QUOTE_PLOT_SEPOLIA_RPC_URL` | Optional browser-accessible Sepolia HTTPS RPC endpoint. |
 | `QUOTE_PLOT_BSC_TESTNET_RPC_URL` | Optional browser-accessible BSC Testnet HTTPS RPC; defaults to `https://bsc-testnet-dataseed.bnbchain.org`. |
 | `QUOTE_PLOT_FACTORY_ADDRESS` | Deployed factory address; required for BSC Testnet, optional for Sepolia when ENS is configured. |
 
-`npm run build` runs a prebuild script that writes these values into `frontend/public/quoteplot-config.js`. Use plain URL strings, not Markdown links. Set Vercel variables for the appropriate deployment environment and rebuild after changing them. RPC URLs are public in the browser bundle; restrict provider keys to the frontend origin. Keep deployer private keys out of Vercel and browser configuration. Never commit credentials.
+`npm run build` runs a prebuild script that writes these values into `frontend/public/quoteplot-config.js`. Vercel must build the `frontend` directory so the prebuild script can read its environment variables. Use plain URL strings, not Markdown links. Set the variables for the deployment environment and redeploy after changing them; they are embedded at build time. RPC URLs are public in the browser bundle; restrict provider keys to the frontend origin. Keep deployer private keys out of Vercel and browser configuration. Never commit credentials.
 
 ### Install and run locally
 
@@ -188,7 +190,7 @@ export BSC_TESTNET_PRIVATE_KEY="0x..." # keep local; never commit
 npx hardhat run scripts/deploy.ts --network bscTestnet
 ```
 
-BSC Testnet uses chain ID `97` and native test currency `tBNB`. Save the printed factory address for the submission form and Vercel `QUOTE_PLOT_FACTORY_ADDRESS`. Configure Vercel with `QUOTE_PLOT_NETWORK=bscTestnet` and a browser-accessible RPC endpoint, then rebuild. Connect a wallet on BSC Testnet to inspect inventory, create tokens, and query creation events. This path does not use Sepolia ENS. See [BNB Chain wallet configuration](https://docs.bnbchain.org/bnb-smart-chain/developers/wallet-configuration/) for current network details.
+BSC Testnet uses chain ID `97` and native test currency `tBNB`. Save the printed factory address for the submission form and Vercel `QUOTE_PLOT_FACTORY_ADDRESS`. Configure Vercel with `QUOTE_PLOT_NETWORK=bscTestnet`, `QUOTE_PLOT_FACTORY_ADDRESS`, and a browser-accessible BSC Testnet RPC endpoint, then redeploy. Connect the wallet to BSC Testnet as well; a wallet left on Sepolia will show the switch-network prompt and the BSC factory inventory will remain empty. The app uses the configured RPC for reads and the wallet for writes. Live inventory updates poll incrementally with rate-limit backoff; use **Search events** to load historical creation events. This path does not use Sepolia ENS. See [BNB Chain wallet configuration](https://docs.bnbchain.org/bnb-smart-chain/developers/wallet-configuration/) for current network details.
 
 ## Demo
 
@@ -197,8 +199,8 @@ BSC Testnet uses chain ID `97` and native test currency `tBNB`. Save the printed
 - Configure backend `GEMINI_API_KEY`, database, `ETH_RPC_URL`, and `FRONTEND_URL`. Configure Bright Data credentials if live web context will be shown.
 - Configure Vercel `QUOTE_PLOT_BACKEND_ORIGIN`, `QUOTE_PLOT_NETWORK`, the corresponding RPC variable, and (for BSC Testnet) `QUOTE_PLOT_FACTORY_ADDRESS`, then rebuild. Confirm the API responds at `/docs`, `/api/market/tickers`, and `/api/agent/brightdata-status`, and that `/ws/thoughts` connects.
 - Confirm the database contains current market rows and an active Ethereum `TokenMap` entry for the symbol you will demo.
-- For BSC Testnet wallet UI, verify the factory on BscScan, configure its address and the RPC, and connect a wallet on chain ID `97`. For Sepolia, verify the factory/ENS resolution and connect a wallet on chain ID `11155111`. Skip either segment if its checks are incomplete.
-- Clear stale filters. Creation-event searches use a recent block window; choose a valid range and click **Search events**.
+- For BSC Testnet wallet UI, verify the factory on BscScan, configure its address and the read RPC, and connect a wallet on chain ID `97`. For Sepolia, verify the factory/ENS resolution and connect a wallet on chain ID `11155111`. The wallet chain must match the configured frontend network. Skip either segment if its checks are incomplete.
+- Clear stale filters. Creation-event searches are manual and use a recent block window; choose a valid range and click **Search events**.
 - Keep API keys, private keys, and account details out of the recording. Do not present unavailable evidence as a negative signal or show unverified deployment addresses.
 
 ### Suggested 3–4 minute walkthrough

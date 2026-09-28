@@ -34,7 +34,9 @@ export class ProviderService {
       ? 'https://bsc-testnet-dataseed.bnbchain.org'
       : undefined;
     this.defaultProvider = rpcUrl || fallbackRpc
-      ? new ethers.JsonRpcProvider(rpcUrl || fallbackRpc, this.targetChainId)
+      ? new ethers.JsonRpcProvider(rpcUrl || fallbackRpc, this.targetChainId, {
+          batchMaxCount: 1,
+        })
       : ethers.getDefaultProvider('sepolia');
   }
  
