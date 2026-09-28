@@ -8,6 +8,8 @@ import { MatPaginator } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
+import { ProviderService } from '../../services/provider.service';
+import { seedTokenFactoryAbi as abi } from '../../contracts/seed-token-factory.abi';
  
 @Component({
   selector: 'app-event-list',
@@ -47,16 +49,14 @@ export class EventListComponent implements OnInit, AfterViewInit, OnDestroy {
   private changes: Subscription | null = null;
  
   constructor(
-    private seedTokenFactoryService: SeedTokenFactoryService
+    private seedTokenFactoryService: SeedTokenFactoryService,
+    private providerService: ProviderService
   ) {}
  
   ngOnInit(): void {
     this.changes = this.seedTokenFactoryService.changes.subscribe(
       (factory: ethers.BaseContract | null) => {
         this.isShowEvents = (factory != null);
-        if (this.isShowEvents) {
-          void this.searchEvents();
-        }
       }
     );
   }
@@ -72,13 +72,15 @@ export class EventListComponent implements OnInit, AfterViewInit, OnDestroy {
  
   async searchEvents() {
     const searchVersion = ++this.searchVersion;
-    const contract = this.seedTokenFactoryService.get();
-    if (!contract) return;
+    const factory = this.seedTokenFactoryService.get();
+    if (!factory) return;
 
     this.isLoading = true;
     this.errorMessage = '';
     try {
-      const latestBlock = await contract.runner?.provider?.getBlockNumber();
+      const provider = this.providerService.getReadProvider();
+      const contract = new ethers.Contract(await factory.getAddress(), abi, provider);
+      const latestBlock = await provider.getBlockNumber();
       if (latestBlock == null) {
         throw new Error('Could not read the current block. Check the configured RPC connection and CORS settings.');
       }
@@ -106,7 +108,8 @@ export class EventListComponent implements OnInit, AfterViewInit, OnDestroy {
       const events: ethers.EventLog[] = [];
       for (let chunkFrom = from; chunkFrom <= to; chunkFrom += this.maxRpcBlockSpan + 1) {
         const chunkTo = Math.min(to, chunkFrom + this.maxRpcBlockSpan);
-        events.push(...await contract.queryFilter(filter, chunkFrom, chunkTo));
+        const logs = await contract.queryFilter(filter, chunkFrom, chunkTo);
+        events.push(...logs.filter((event): event is ethers.EventLog => 'args' in event));
       }
 
       if (searchVersion !== this.searchVersion) return;

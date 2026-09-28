@@ -75,6 +75,10 @@ export class ProviderService {
   public getProvider() {
     return this.provider || this.defaultProvider;
   }
+
+  public getReadProvider(): ethers.Provider {
+    return this.defaultProvider;
+  }
  
   public async connect(
     eip1193: ethers.Eip1193Provider,

@@ -13,6 +13,7 @@ import { MintDialogComponent } from './mint-dialog/mint-dialog.component';
 import { ProviderService } from '../../services/provider.service';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { ChangeOwnerDialogComponent } from './change-owner-dialog/change-owner-dialog.component';
+import { seedTokenFactoryAbi } from '../../contracts/seed-token-factory.abi';
  
 export interface Token {
   index: number;
@@ -76,13 +77,19 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
       abi,
       signer
     );
+    const readContract = new ethers.Contract(
+      tokenAddress,
+      abi,
+      this.providerService.getReadProvider()
+    );
  
     const token: Token = await this.getToken(
       signerAddress,
       tokenList.length,
       tokenAddress,
       owner,
-      contract
+      contract,
+      readContract
     );
  
     this.seedTokenFactoryService.tokenList.data = [...tokenList, token];
@@ -112,17 +119,15 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
         //process newly added factories if any
         this.consumeAndUpdate();
       }).catch((error) => {
-        console.error(error.message);
         this.pendingFactories = [];
-        this.providerService.disconnect();
-        this.providerService.changes.next({ accounts: [] });
+        console.error('Could not load the token list. The wallet remains connected; retry after the RPC is available.', error);
       });
     }
   }
  
   async updateTokenList(factory: any) {
     const initialBlock = factory
-      ? await factory.runner?.provider?.getBlockNumber()
+      ? await this.providerService.getReadProvider().getBlockNumber()
       : null;
     if (factory && initialBlock == null) {
       throw new Error('Could not read the current block to monitor token creation events.');
@@ -144,25 +149,33 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
       const signer = factory.runner;
       const signerAddress = signer?.address;
  
-      const tokenCount = await factory.getNumberOfTokens();
+      const readProvider = this.providerService.getReadProvider();
+      const readFactory = new ethers.Contract(
+        await factory.getAddress(),
+        seedTokenFactoryAbi,
+        readProvider
+      );
+      const tokenCount = await readFactory.getNumberOfTokens();
       this.seedTokenFactoryService.tokenCount = tokenCount;
       for (let i = 0; i < tokenCount; i++) {
         this.seedTokenFactoryService.tokenIndex = i;
-        const address = await factory.tokens(i);
+        const address = await readFactory.tokens(i);
         const contract = new ethers.Contract(
           address,
           abi,
           signer
         );
+        const readContract = new ethers.Contract(address, abi, readProvider);
  
-        const owner = await contract.owner();
+        const owner = await readContract.owner();
  
         const token: Token = await this.getToken(
           signerAddress,
           i,
           address,
           owner,
-          contract
+          contract,
+          readContract
         );
  
         tokens.push(token);
@@ -193,15 +206,19 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
     if (factory !== this.eventPollingFactory || this.lastScannedBlock == null) return;
 
     try {
-      const provider = factory.runner?.provider;
-      if (!provider) throw new Error('No provider is available for token event polling.');
+      const provider = this.providerService.getReadProvider();
+      const reader = new ethers.Contract(
+        await factory.getAddress(),
+        seedTokenFactoryAbi,
+        provider
+      );
 
       const latestBlock = await provider.getBlockNumber();
       const fromBlock = this.lastScannedBlock + 1;
       const toBlock = Math.min(latestBlock, fromBlock + this.maxRpcBlockSpan);
       if (fromBlock <= toBlock) {
-        const filter = factory.filters.SeedTokenCreation(null, null, null, null);
-        const events = await factory.queryFilter(filter, fromBlock, toBlock);
+        const filter = reader.filters.SeedTokenCreation(null, null, null, null);
+        const events = await reader.queryFilter(filter, fromBlock, toBlock);
         if (factory !== this.eventPollingFactory) return;
 
         for (const event of events) {
@@ -233,20 +250,21 @@ export class TokenListComponent implements AfterViewInit, OnDestroy {
     index: number,
     tokenAddress: string,
     owner: string,
-    contract: ethers.Contract
+    contract: ethers.Contract,
+    readContract: ethers.Contract = contract
   ): Promise<Token> {
-    const decimals = await contract.decimals();
+    const decimals = await readContract.decimals();
     const divisor = 10n ** decimals;
     const balance = signerAddress
-                  ? (await contract.balanceOf(signerAddress)) / divisor
+                  ? (await readContract.balanceOf(signerAddress)) / divisor
                   : 0n;
  
     return {
       index: index,
       address: tokenAddress,
-      name: await contract.name(),
-      symbol: await contract.symbol(),
-      supply: (await contract.totalSupply()) / divisor,
+      name: await readContract.name(),
+      symbol: await readContract.symbol(),
+      supply: (await readContract.totalSupply()) / divisor,
       balance: balance,
       owner: owner,
       isOwner: (signerAddress?.toLowerCase() === owner?.toLowerCase()),
