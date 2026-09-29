@@ -1,4 +1,4 @@
-import { afterNextRender, Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
+import { afterNextRender, ChangeDetectorRef, Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -48,7 +48,10 @@ export class LucyPanelComponent implements OnInit, OnDestroy {
   private statusTimer: ReturnType<typeof setInterval> | null = null;
   private destroyed = false;
 
-  constructor(private lucyService: LucyService) {
+  constructor(
+    private lucyService: LucyService,
+    private changeDetectorRef: ChangeDetectorRef
+  ) {
     afterNextRender(() => {
       if (this.destroyed) return;
       this.refreshServiceStatus();
@@ -127,10 +130,12 @@ export class LucyPanelComponent implements OnInit, OnDestroy {
           this.formatReply(response)
         ];
         this.isSending = false;
+        this.changeDetectorRef.markForCheck();
       },
       error: () => {
         this.errorMessage = 'Lucy is unavailable. Check that the backend is running.';
         this.isSending = false;
+        this.changeDetectorRef.markForCheck();
       }
     });
   }
