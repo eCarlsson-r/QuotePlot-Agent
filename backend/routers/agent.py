@@ -173,7 +173,7 @@ class LucyAgent:
     it to the same BD thread-pool executor so the event loop stays free.
     """
 
-    _MODEL = "gemini-3.7-flash"   # Single source of truth — no dead model_id field
+    _MODEL = os.getenv("GEMINI_MODEL") or "gemini-3.5-flash-lite"   # Single source of truth — no dead model_id field
 
     def __init__(self):
         api_key = os.getenv("GEMINI_API_KEY")
